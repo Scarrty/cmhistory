@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
+from cm_dashboard.importing.article_import import link_article_lines_to_shipments
 from cm_dashboard.importing.filename import DateBasis, Direction, ParsedFilename
 from cm_dashboard.importing.normalize import (
     normalize_bool,
@@ -38,6 +39,7 @@ def import_shipment_sheet(
                 metadata=metadata,
             )
             imported_count += 1
+        link_article_lines_to_shipments(connection, record_issues=False)
     return imported_count
 
 

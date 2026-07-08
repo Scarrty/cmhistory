@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +40,65 @@ def import_article_sheet(
             )
             imported_count += 1
     return imported_count
+
+
+@dataclass(frozen=True)
+class ArticleShipmentLinkResult:
+    linked_count: int
+    unmatched_order_ids: tuple[str, ...]
+
+
+def link_article_lines_to_shipments(
+    connection: sqlite3.Connection,
+    *,
+    record_issues: bool = True,
+) -> ArticleShipmentLinkResult:
+    with connection:
+        cursor = connection.execute(
+            """
+            UPDATE article_lines
+            SET shipment_id = (
+                SELECT shipments.shipment_id
+                FROM shipments
+                WHERE shipments.order_id = article_lines.order_id
+            )
+            WHERE shipment_id IS NULL
+              AND EXISTS (
+                SELECT 1
+                FROM shipments
+                WHERE shipments.order_id = article_lines.order_id
+              )
+            """
+        )
+        unmatched_rows = connection.execute(
+            """
+            SELECT order_id, MIN(source_import_file_id) AS import_file_id
+            FROM article_lines
+            WHERE shipment_id IS NULL
+            GROUP BY order_id
+            ORDER BY order_id
+            """
+        ).fetchall()
+        if record_issues:
+            connection.executemany(
+                """
+                INSERT INTO import_issues (
+                    import_file_id, severity, code, message
+                ) VALUES (?, 'warning', 'unmatched_article_order', ?)
+                """,
+                (
+                    (
+                        row["import_file_id"],
+                        f"Article order {row['order_id']} has no matching shipment",
+                    )
+                    for row in unmatched_rows
+                ),
+            )
+
+    return ArticleShipmentLinkResult(
+        linked_count=cursor.rowcount,
+        unmatched_order_ids=tuple(row["order_id"] for row in unmatched_rows),
+    )
 
 
 def _import_article_row(
