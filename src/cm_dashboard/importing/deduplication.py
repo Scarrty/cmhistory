@@ -22,6 +22,8 @@ from cm_dashboard.importing.readers import WorksheetData
 
 @dataclass(frozen=True)
 class ArticleBusinessKey:
+    direction: str
+    date_basis: str
     order_id: str
     event_minute: datetime
     article: str
@@ -49,6 +51,8 @@ def article_business_key(
     date_column = _article_date_column(metadata.date_basis)
     event_datetime = _required_datetime(row.get(date_column), date_column)
     return ArticleBusinessKey(
+        direction=metadata.direction.value,
+        date_basis=metadata.date_basis.value,
         order_id=_required_identifier(row.get("Shipment nr."), "Shipment nr."),
         event_minute=event_datetime.replace(second=0, microsecond=0),
         article=_required_text(row.get("Article"), "Article"),
