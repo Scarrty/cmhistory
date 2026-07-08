@@ -6,7 +6,6 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-
 EXCEL_EPOCH = datetime(1899, 12, 30)
 DATETIME_FORMATS = (
     "%Y-%m-%d %H:%M:%S",

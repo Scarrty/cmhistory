@@ -54,4 +54,6 @@ def test_article_business_key_normalizes_csv_and_xls_row_shapes() -> None:
         "Comments": "A026",
     }
 
-    assert article_business_key(csv_row, csv_metadata) == article_business_key(xls_row, xls_metadata)
+    assert article_business_key(csv_row, csv_metadata) == article_business_key(
+        xls_row, xls_metadata
+    )

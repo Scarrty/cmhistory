@@ -2,7 +2,6 @@ import sqlite3
 
 from cm_dashboard.db import apply_migrations, connect_database, create_database
 
-
 REQUIRED_TABLES = {
     "schema_migrations",
     "import_files",

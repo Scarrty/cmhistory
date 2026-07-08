@@ -97,10 +97,13 @@ def store_raw_article_rows(
                 _json_dumps(asdict(key)),
                 _json_dumps(row_values),
             )
-        )
+    )
 
     with connection:
-        connection.execute("DELETE FROM raw_article_rows WHERE import_file_id = ?", (import_file_id,))
+        connection.execute(
+            "DELETE FROM raw_article_rows WHERE import_file_id = ?",
+            (import_file_id,),
+        )
         connection.executemany(
             """
             INSERT INTO raw_article_rows (
@@ -133,7 +136,10 @@ def store_raw_shipment_rows(
         )
 
     with connection:
-        connection.execute("DELETE FROM raw_shipment_rows WHERE import_file_id = ?", (import_file_id,))
+        connection.execute(
+            "DELETE FROM raw_shipment_rows WHERE import_file_id = ?",
+            (import_file_id,),
+        )
         connection.executemany(
             """
             INSERT INTO raw_shipment_rows (

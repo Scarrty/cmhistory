@@ -1,11 +1,12 @@
 import csv
 from io import StringIO
 
+from fastapi.testclient import TestClient
+
 from cm_dashboard.db import create_database
 from cm_dashboard.importing.pipeline import import_source_file
 from cm_dashboard.importing.source_scan import SourceFile
 from cm_dashboard.web.app import create_app
-from fastapi.testclient import TestClient
 from tests.fixtures import require_fixture_path
 
 

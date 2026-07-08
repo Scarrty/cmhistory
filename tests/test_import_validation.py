@@ -33,7 +33,10 @@ def test_validate_database_reports_duplicates_unmatched_and_grouping_summary(tmp
     connection = create_database(tmp_path / "cardmarket.db")
     for key in ("sold_articles_2026_01_csv", "sold_articles_2026_01_xls", "unicode_shipment"):
         path = require_fixture_path(key)
-        import_source_file(connection, SourceFile(path=path, metadata=require_parsed_filename(path)))
+        import_source_file(
+            connection,
+            SourceFile(path=path, metadata=require_parsed_filename(path)),
+        )
 
     issues = validate_database(connection)
     codes = {issue.code for issue in issues}

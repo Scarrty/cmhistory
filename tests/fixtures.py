@@ -8,7 +8,6 @@ import pytest
 
 from cm_dashboard.config import PROJECT_ROOT, normalize_path
 
-
 SOURCE_ROOT_ENV = "CM_DASHBOARD_SOURCE_ROOT"
 
 

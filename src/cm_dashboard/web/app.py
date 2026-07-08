@@ -1,4 +1,5 @@
 """FastAPI application shell."""
+# ruff: noqa: E402
 
 from __future__ import annotations
 
@@ -41,7 +42,6 @@ from cm_dashboard.reporting.queries import (
     period_report_rows,
     period_totals,
 )
-
 
 WEB_DIR = Path(__file__).resolve().parent
 PERIOD_REPORT_FIELDS = (
@@ -247,7 +247,11 @@ def _mask_text(value) -> str:
 
 def _csv_body(rows: list[dict]) -> str:
     buffer = io.StringIO()
-    writer = csv.DictWriter(buffer, fieldnames=PERIOD_REPORT_FIELDS, lineterminator="\n")
+    writer = csv.DictWriter(
+        buffer,
+        fieldnames=PERIOD_REPORT_FIELDS,
+        lineterminator="\n",
+    )
     writer.writeheader()
     writer.writerows(rows)
     return buffer.getvalue()

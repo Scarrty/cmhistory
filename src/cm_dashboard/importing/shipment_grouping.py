@@ -8,7 +8,6 @@ from typing import Any
 from cm_dashboard.importing.normalize import is_empty, normalize_identifier
 from cm_dashboard.importing.readers import WorksheetData
 
-
 LINE_DETAIL_COLUMNS = {"Description", "Product ID", "Localized Product Name"}
 
 

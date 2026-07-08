@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from cm_dashboard.config import load_settings
 from cm_dashboard.db import connect_database, create_database

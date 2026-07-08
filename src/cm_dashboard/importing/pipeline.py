@@ -6,8 +6,10 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
-from cm_dashboard.importing.article_import import import_article_sheet
-from cm_dashboard.importing.article_import import link_article_lines_to_shipments
+from cm_dashboard.importing.article_import import (
+    import_article_sheet,
+    link_article_lines_to_shipments,
+)
 from cm_dashboard.importing.filename import ExportEntity, require_parsed_filename
 from cm_dashboard.importing.raw_store import (
     store_raw_article_rows,
@@ -88,7 +90,9 @@ def import_source_path(connection: sqlite3.Connection, path: str | Path) -> Impo
     return import_source_file(connection, SourceFile(path=source_path, metadata=metadata))
 
 
-def import_source_folder(connection: sqlite3.Connection, source_path: str | Path) -> tuple[ImportResult, ...]:
+def import_source_folder(
+    connection: sqlite3.Connection, source_path: str | Path
+) -> tuple[ImportResult, ...]:
     report = scan_source_files(source_path)
     results = tuple(
         import_source_file(connection, source_file, link_shipments=False)

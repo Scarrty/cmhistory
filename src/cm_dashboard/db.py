@@ -8,7 +8,6 @@ from pathlib import Path
 
 from cm_dashboard.config import PROJECT_ROOT
 
-
 MIGRATIONS_PATH = PROJECT_ROOT / "migrations"
 
 

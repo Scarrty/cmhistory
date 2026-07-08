@@ -1,8 +1,9 @@
+from fastapi.testclient import TestClient
+
 from cm_dashboard.db import create_database
 from cm_dashboard.importing.filename import require_parsed_filename
 from cm_dashboard.importing.raw_store import upsert_import_file
 from cm_dashboard.web.app import create_app
-from fastapi.testclient import TestClient
 from tests.fixtures import require_fixture_path
 
 

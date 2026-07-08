@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Mapping
+from typing import Any
 
 from cm_dashboard.importing.filename import DateBasis, ParsedFilename
 from cm_dashboard.importing.normalize import (
@@ -41,7 +42,10 @@ class ArticleBusinessKey:
 def article_business_keys(
     sheet: WorksheetData, metadata: ParsedFilename
 ) -> tuple[ArticleBusinessKey, ...]:
-    return tuple(article_business_key(dict(zip(sheet.headers, row, strict=True)), metadata) for row in sheet.rows)
+    return tuple(
+        article_business_key(dict(zip(sheet.headers, row, strict=True)), metadata)
+        for row in sheet.rows
+    )
 
 
 def article_business_key(

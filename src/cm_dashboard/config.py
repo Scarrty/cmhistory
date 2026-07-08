@@ -3,7 +3,6 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SOURCE_PATH = PROJECT_ROOT
 DEFAULT_DATABASE_PATH = PROJECT_ROOT / "data" / "cardmarket.db"

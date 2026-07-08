@@ -12,7 +12,6 @@ from cm_dashboard.importing.filename import (
     parse_filename,
 )
 
-
 IMPORTABLE_EXTENSIONS = {".xls", ".xlsx", ".csv"}
 
 
@@ -46,7 +45,10 @@ class SourceScanReport:
 def scan_source_files(source_path: str | Path) -> SourceScanReport:
     root = Path(source_path).expanduser().resolve(strict=False)
     if not root.is_dir():
-        issue = FilenameParseIssue(file_name=root.name, message=f"Source path is not a directory: {root}")
+        issue = FilenameParseIssue(
+            file_name=root.name,
+            message=f"Source path is not a directory: {root}",
+        )
         return SourceScanReport(
             source_path=root,
             files=(),

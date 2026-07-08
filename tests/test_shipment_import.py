@@ -29,7 +29,8 @@ def test_import_shipment_sheet_normalizes_shipments_events_and_fees(tmp_path) ->
     )
 
     assert imported_count == expected_header_count
-    assert connection.execute("SELECT COUNT(*) FROM shipments").fetchone()[0] == expected_header_count
+    shipment_count = connection.execute("SELECT COUNT(*) FROM shipments").fetchone()[0]
+    assert shipment_count == expected_header_count
     shipment = connection.execute(
         "SELECT * FROM shipments WHERE order_id = '35389710'"
     ).fetchone()

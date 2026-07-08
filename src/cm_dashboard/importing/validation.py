@@ -28,7 +28,9 @@ class ValidationIssue:
     period_end: date | None = None
 
 
-def validate_source_folder(source_path: str | Path, *, check_headers: bool = True) -> tuple[ValidationIssue, ...]:
+def validate_source_folder(
+    source_path: str | Path, *, check_headers: bool = True
+) -> tuple[ValidationIssue, ...]:
     report = scan_source_files(source_path)
     issues: list[ValidationIssue] = []
     for unknown in report.unknown_files:
@@ -119,11 +121,19 @@ def _coverage_issues(metadata_items: list[ParsedFilename]) -> tuple[ValidationIs
     periods_by_context: dict[tuple[str, str], dict[DateBasis, set[tuple[date, date]]]] = {}
     for metadata in metadata_items:
         context = (metadata.direction.value, metadata.entity.value)
-        periods_by_context.setdefault(context, {DateBasis.PURCHASEDATE: set(), DateBasis.PAYMENTDATE: set()})
-        periods_by_context[context][metadata.date_basis].add((metadata.period_start, metadata.period_end))
+        periods_by_context.setdefault(
+            context,
+            {DateBasis.PURCHASEDATE: set(), DateBasis.PAYMENTDATE: set()},
+        )
+        periods_by_context[context][metadata.date_basis].add(
+            (metadata.period_start, metadata.period_end)
+        )
 
     for (direction, entity), periods_by_basis in sorted(periods_by_context.items()):
-        all_periods = periods_by_basis[DateBasis.PURCHASEDATE] | periods_by_basis[DateBasis.PAYMENTDATE]
+        all_periods = (
+            periods_by_basis[DateBasis.PURCHASEDATE]
+            | periods_by_basis[DateBasis.PAYMENTDATE]
+        )
         for period_start, period_end in sorted(all_periods):
             for date_basis in (DateBasis.PURCHASEDATE, DateBasis.PAYMENTDATE):
                 if (period_start, period_end) in periods_by_basis[date_basis]:
@@ -182,7 +192,10 @@ def _duplicate_raw_article_issues(connection: sqlite3.Connection) -> tuple[Valid
         ValidationIssue(
             severity="warning",
             code="duplicate_article_business_key",
-            message=f"Article business key occurs {row['duplicate_count']} times across raw exports",
+            message=(
+                f"Article business key occurs {row['duplicate_count']} times "
+                "across raw exports"
+            ),
             import_file_id=row["import_file_id"],
         )
         for row in rows

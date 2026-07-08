@@ -1,5 +1,6 @@
-from cm_dashboard.web.app import create_app
 from fastapi.testclient import TestClient
+
+from cm_dashboard.web.app import create_app
 
 
 def test_web_app_starts_and_serves_base_route() -> None:

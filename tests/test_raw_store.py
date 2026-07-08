@@ -59,7 +59,12 @@ def test_store_raw_article_rows_persists_source_traceability(tmp_path) -> None:
 
     assert stored_count == sheet.row_count
     row = connection.execute(
-        "SELECT * FROM raw_article_rows WHERE import_file_id = ? ORDER BY source_row_number LIMIT 1",
+        """
+        SELECT * FROM raw_article_rows
+        WHERE import_file_id = ?
+        ORDER BY source_row_number
+        LIMIT 1
+        """,
         (import_file_id,),
     ).fetchone()
     raw_values = json.loads(row["raw_values_json"])

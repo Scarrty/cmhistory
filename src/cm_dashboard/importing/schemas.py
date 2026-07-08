@@ -35,7 +35,10 @@ class HeaderValidationResult:
 
     @property
     def is_compatible(self) -> bool:
-        return not any(issue.kind in {HeaderIssueKind.MISSING, HeaderIssueKind.DUPLICATE} for issue in self.issues)
+        return not any(
+            issue.kind in {HeaderIssueKind.MISSING, HeaderIssueKind.DUPLICATE}
+            for issue in self.issues
+        )
 
 
 ARTICLE_BASE_COLUMNS = (
