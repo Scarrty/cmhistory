@@ -1,0 +1,21 @@
+# Local/runtime files
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# Private Cardmarket source exports
+*.XLS
+*.xls
+*.XLSX
+*.xlsx
+*.CSV
+*.csv
+
+# Local OS/editor files
+.DS_Store
+Thumbs.db
+desktop.ini
