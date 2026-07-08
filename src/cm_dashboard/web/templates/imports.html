@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="stack">
+  <section class="panel">
+    <div class="section-header">
+      <h1>Imports</h1>
+      <span class="muted">{{ files|length }} files</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Direction</th>
+            <th>Type</th>
+            <th>Basis</th>
+            <th>Period</th>
+            <th>Rows</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for file in files %}
+          <tr>
+            <td>{{ file.file_name }}</td>
+            <td>{{ file.direction }}</td>
+            <td>{{ file.entity }}</td>
+            <td>{{ file.date_basis }}</td>
+            <td>{{ file.period_start }} - {{ file.period_end }}</td>
+            <td>{{ file.row_count }}</td>
+            <td>{{ file.import_status }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="7" class="muted">No imports</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="section-header">
+      <h2>Issues</h2>
+      <span class="muted">{{ issues|length }} entries</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Severity</th>
+            <th>Code</th>
+            <th>File</th>
+            <th>Row</th>
+            <th>Message</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for issue in issues %}
+          <tr>
+            <td><span class="badge {{ issue.severity }}">{{ issue.severity }}</span></td>
+            <td>{{ issue.code }}</td>
+            <td>{{ issue.file_name or "" }}</td>
+            <td>{{ issue.source_row_number or "" }}</td>
+            <td>{{ issue.message }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="5" class="muted">No issues</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{% endblock %}
