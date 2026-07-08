@@ -26,6 +26,7 @@ def import_shipment_sheet(
     import_file_id: int,
     sheet: WorksheetData,
     metadata: ParsedFilename,
+    link_articles: bool = True,
 ) -> int:
     imported_count = 0
     with connection:
@@ -35,11 +36,13 @@ def import_shipment_sheet(
             _import_shipment_header(
                 connection,
                 import_file_id=import_file_id,
+                source_row_number=row.source_row_number,
                 values=row.inherited_values,
                 metadata=metadata,
             )
             imported_count += 1
-        link_article_lines_to_shipments(connection, record_issues=False)
+        if link_articles:
+            link_article_lines_to_shipments(connection, record_issues=False)
     return imported_count
 
 
@@ -47,6 +50,7 @@ def _import_shipment_header(
     connection: sqlite3.Connection,
     *,
     import_file_id: int,
+    source_row_number: int,
     values: dict[str, Any],
     metadata: ParsedFilename,
 ) -> None:
@@ -99,7 +103,21 @@ def _import_shipment_header(
         "SELECT shipment_id FROM shipments WHERE order_id = ?",
         (order_id,),
     ).fetchone()["shipment_id"]
-    event_datetime = _required_datetime(values.get(_shipment_date_column(metadata.date_basis)), metadata)
+    event_datetime = normalize_datetime(values.get(_shipment_date_column(metadata.date_basis)))
+    if event_datetime is None:
+        connection.execute(
+            """
+            INSERT INTO import_issues (
+                import_file_id, severity, code, message, source_row_number
+            ) VALUES (?, 'warning', 'missing_shipment_event_date', ?, ?)
+            """,
+            (
+                import_file_id,
+                f"Shipment {order_id} has no {metadata.date_basis.value} event date",
+                source_row_number,
+            ),
+        )
+        return
     connection.execute(
         """
         INSERT OR IGNORE INTO shipment_events (
@@ -135,13 +153,6 @@ def _required_identifier(value: Any, column: str) -> str:
     normalized = normalize_identifier(value)
     if normalized is None:
         raise ValueError(f"Missing required identifier column: {column}")
-    return normalized
-
-
-def _required_datetime(value: Any, metadata: ParsedFilename):
-    normalized = normalize_datetime(value)
-    if normalized is None:
-        raise ValueError(f"Missing required shipment date for {metadata.file_name}")
     return normalized
 
 

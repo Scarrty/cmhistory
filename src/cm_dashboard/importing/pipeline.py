@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from cm_dashboard.importing.article_import import import_article_sheet
+from cm_dashboard.importing.article_import import link_article_lines_to_shipments
 from cm_dashboard.importing.filename import ExportEntity, require_parsed_filename
 from cm_dashboard.importing.raw_store import (
     store_raw_article_rows,
@@ -28,7 +29,12 @@ class ImportResult:
     normalized_row_count: int
 
 
-def import_source_file(connection: sqlite3.Connection, source_file: SourceFile) -> ImportResult:
+def import_source_file(
+    connection: sqlite3.Connection,
+    source_file: SourceFile,
+    *,
+    link_shipments: bool = True,
+) -> ImportResult:
     sheet = read_spreadsheet(source_file.path)
     header_result = validate_headers(sheet.headers, source_file.metadata)
     if not header_result.is_compatible:
@@ -64,6 +70,7 @@ def import_source_file(connection: sqlite3.Connection, source_file: SourceFile) 
             import_file_id=import_file_id,
             sheet=sheet,
             metadata=source_file.metadata,
+            link_articles=link_shipments,
         )
 
     return ImportResult(
@@ -83,4 +90,9 @@ def import_source_path(connection: sqlite3.Connection, path: str | Path) -> Impo
 
 def import_source_folder(connection: sqlite3.Connection, source_path: str | Path) -> tuple[ImportResult, ...]:
     report = scan_source_files(source_path)
-    return tuple(import_source_file(connection, source_file) for source_file in report.files)
+    results = tuple(
+        import_source_file(connection, source_file, link_shipments=False)
+        for source_file in report.files
+    )
+    link_article_lines_to_shipments(connection, record_issues=False)
+    return results

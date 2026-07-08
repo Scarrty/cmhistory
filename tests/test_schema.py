@@ -47,6 +47,7 @@ def test_initial_schema_has_required_indexes(tmp_path) -> None:
         "idx_raw_article_rows_order_id",
         "idx_raw_shipment_rows_resolved_order_id",
         "idx_article_lines_filters",
+        "idx_article_lines_order_id",
         "idx_import_issues_file_severity",
     }.issubset(indexes)
 

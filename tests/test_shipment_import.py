@@ -119,3 +119,77 @@ def test_import_shipment_sheet_uses_commission_for_sold_shipments(tmp_path) -> N
     shipment = connection.execute("SELECT * FROM shipments WHERE order_id = '1'").fetchone()
     assert shipment["commission"] == "0.50"
     assert shipment["trustee_service_fee"] is None
+
+
+def test_import_shipment_sheet_reports_missing_event_dates_without_crashing(tmp_path) -> None:
+    connection = create_database(tmp_path / "cardmarket.db")
+    metadata = require_parsed_filename(
+        "PURCHASED SHIPMENTS-BYPAYMENTDATE-2026-01-01_2026-01-31.XLS"
+    )
+    sheet = WorksheetData(
+        path="in-memory.xls",
+        sheet_name="Worksheet",
+        headers=(
+            "OrderID",
+            "Username",
+            "Name",
+            "Street",
+            "City",
+            "Country",
+            "Is Professional",
+            "VAT Number",
+            "Date of Payment",
+            "Article Count",
+            "Merchandise Value",
+            "Shipment Costs",
+            "Trustee service fee",
+            "Total Value",
+            "Currency",
+            "Description",
+            "Product ID",
+            "Localized Product Name",
+        ),
+        rows=(
+            (
+                "missing-date",
+                "seller",
+                "Name",
+                "Street",
+                "City",
+                "Germany",
+                "",
+                "",
+                "",
+                "1",
+                "10,00",
+                "1,50",
+                "0,00",
+                "11,50",
+                "EUR",
+                "1x Card",
+                "123",
+                "Card",
+            ),
+        ),
+    )
+    import_file_id = upsert_import_file(
+        connection,
+        path=__file__,
+        metadata=metadata,
+        sheet_name=sheet.sheet_name,
+        row_count=sheet.row_count,
+    )
+
+    imported_count = import_shipment_sheet(
+        connection,
+        import_file_id=import_file_id,
+        sheet=sheet,
+        metadata=metadata,
+    )
+
+    assert imported_count == 1
+    assert connection.execute("SELECT COUNT(*) FROM shipments").fetchone()[0] == 1
+    assert connection.execute("SELECT COUNT(*) FROM shipment_events").fetchone()[0] == 0
+    issue = connection.execute("SELECT * FROM import_issues").fetchone()
+    assert issue["code"] == "missing_shipment_event_date"
+    assert issue["source_row_number"] == 2

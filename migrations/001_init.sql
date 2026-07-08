@@ -140,5 +140,8 @@ CREATE INDEX IF NOT EXISTS idx_shipment_events_type_datetime
 CREATE INDEX IF NOT EXISTS idx_article_lines_filters
     ON article_lines(direction, date_basis, event_datetime, product_id, order_id);
 
+CREATE INDEX IF NOT EXISTS idx_article_lines_order_id
+    ON article_lines(order_id);
+
 CREATE INDEX IF NOT EXISTS idx_import_issues_file_severity
     ON import_issues(import_file_id, severity);
