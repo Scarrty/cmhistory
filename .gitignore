@@ -6,6 +6,10 @@ __pycache__/
 data/*.db
 data/*.sqlite
 data/*.sqlite3
+data/*.db-*
+dist/
+build/
+*.egg-info/
 
 # Private Cardmarket source exports
 *.XLS

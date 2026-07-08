@@ -6,12 +6,14 @@ Ziel ist eine schlanke Webanwendung, die Cardmarket-Exportdateien importiert, no
 
 ## Status
 
-Dieses Repository enthaelt aktuell noch keine Implementierung. Es enthaelt die fachliche Vorarbeit fuer den spaeteren MVP:
+Dieses Repository enthaelt aktuell ein minimales Python-Projekt-Skeleton und die fachliche Vorarbeit fuer den spaeteren MVP:
 
 - Datenmodell aus den vorhandenen Cardmarket-Exporten
 - Product Requirements Document
 - kritische PRD-Feasibility-Review
 - konkreter MVP-Implementierungsplan
+
+Es gibt noch keine Import-, Datenbank- oder Weblogik. Der Skeleton dient nur als Startpunkt fuer die testgetriebene Umsetzung aus dem MVP-Plan.
 
 ## Wichtige Dokumente
 
@@ -63,9 +65,9 @@ Details stehen in `OUTPUT/MVP_IMPLEMENTATION_PLAN.md`.
 
 ## Naechste Schritte
 
-Die naechste sinnvolle Arbeit ist die Umsetzung von Task 1 aus dem MVP-Implementierungsplan:
+Die naechste sinnvolle Arbeit ist die Umsetzung von Task 2 aus dem MVP-Implementierungsplan:
 
-1. Python-Projektstruktur anlegen.
+1. Konfigurationsmodul fuer Quellordner und lokale SQLite-Datenbank anlegen.
 2. Lokale Import- und Validierungslogik testgetrieben aufbauen.
 3. Erst danach die Weboberflaeche umsetzen.
 
