@@ -23,6 +23,13 @@ def test_read_csv_fixture_with_same_interface() -> None:
     assert all(len(row) == len(sheet.headers) for row in sheet.rows)
 
 
+def test_read_xls_preserves_unicode_text() -> None:
+    sheet = read_spreadsheet(require_fixture_path("unicode_shipment"))
+    values = {value for row in sheet.rows for value in row}
+
+    assert "Haus Füchteln 10" in values
+
+
 def test_unsupported_extension_is_explicit() -> None:
     try:
         read_spreadsheet("README.md")
