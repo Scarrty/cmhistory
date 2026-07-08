@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import json
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Mapping
@@ -61,6 +62,10 @@ def article_business_key(
         currency=_required_currency(row.get("Currency"), "Currency"),
         comments=_optional_text(row.get("Comments")),
     )
+
+
+def article_business_key_string(row: Mapping[str, Any], metadata: ParsedFilename) -> str:
+    return json.dumps(asdict(article_business_key(row, metadata)), sort_keys=True, default=str)
 
 
 def _article_date_column(date_basis: DateBasis) -> str:
