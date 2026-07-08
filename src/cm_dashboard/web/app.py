@@ -21,7 +21,7 @@ def _patch_python314_typing_for_pydantic() -> None:
 
 _patch_python314_typing_for_pydantic()
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -111,6 +111,47 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
                 "active_nav": "shipments",
                 "filters": filters,
                 "shipments": rows,
+            },
+        )
+
+    @app.get("/shipments/{order_id}", response_class=HTMLResponse)
+    def shipment_detail(request: Request, order_id: str):
+        connection = create_database(app.state.database_path)
+        shipment = connection.execute(
+            "SELECT * FROM shipments WHERE order_id = ?",
+            (order_id,),
+        ).fetchone()
+        if shipment is None:
+            raise HTTPException(status_code=404, detail="Shipment not found")
+        events = connection.execute(
+            """
+            SELECT event_type, event_datetime
+            FROM shipment_events
+            WHERE shipment_id = ?
+            ORDER BY event_datetime
+            """,
+            (shipment["shipment_id"],),
+        ).fetchall()
+        articles = connection.execute(
+            """
+            SELECT article_lines.*, import_files.file_name
+            FROM article_lines
+            LEFT JOIN import_files
+                ON import_files.import_file_id = article_lines.source_import_file_id
+            WHERE article_lines.shipment_id = ?
+            ORDER BY article_lines.article_line_id
+            """,
+            (shipment["shipment_id"],),
+        ).fetchall()
+        return templates.TemplateResponse(
+            request,
+            "shipment_detail.html",
+            {
+                "page_title": f"Shipment {order_id}",
+                "active_nav": "shipments",
+                "shipment": shipment,
+                "events": events,
+                "articles": articles,
             },
         )
 
