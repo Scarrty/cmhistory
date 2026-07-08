@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="stack">
+  <section class="panel">
+    <div class="section-header">
+      <h1>Dashboard</h1>
+    </div>
+    <form class="filter-row" method="get" action="/">
+      <div class="field">
+        <label for="start_date">From</label>
+        <input id="start_date" name="start_date" type="date" value="{{ filters.start_date or '' }}">
+      </div>
+      <div class="field">
+        <label for="end_date">To</label>
+        <input id="end_date" name="end_date" type="date" value="{{ filters.end_date or '' }}">
+      </div>
+      <button type="submit">Apply</button>
+    </form>
+  </section>
+
+  <section class="kpi-grid" aria-label="Period totals">
+    <div class="kpi">
+      <div class="kpi-label">Article lines</div>
+      <div class="kpi-value">{{ totals.article_line_count }}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Shipments</div>
+      <div class="kpi-value">{{ totals.shipment_count }}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Purchases</div>
+      <div class="kpi-value">{{ "%.2f"|format(totals.purchase_total) }}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Sales</div>
+      <div class="kpi-value">{{ "%.2f"|format(totals.sales_total) }}</div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="section-header">
+      <h2>Monthly totals</h2>
+      <span class="muted">{{ monthly|length }} rows</span>
+    </div>
+    <div class="chart" role="img" aria-label="Monthly purchase and sales totals">
+      {% for row in monthly %}
+      <div class="chart-row">
+        <span>{{ row.month }}</span>
+        <div class="chart-track">
+          <div
+            class="chart-bar"
+            data-chart-bar
+            data-value="{{ row.total }}"
+            data-max="{{ max_monthly_total }}"
+          ></div>
+        </div>
+        <strong>{{ "%.2f"|format(row.total) }}</strong>
+      </div>
+      {% else %}
+      <p class="muted">No rows</p>
+      {% endfor %}
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>Direction</th>
+            <th>Article lines</th>
+            <th>Shipments</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in monthly %}
+          <tr>
+            <td>{{ row.month }}</td>
+            <td>{{ row.direction }}</td>
+            <td>{{ row.article_line_count }}</td>
+            <td>{{ row.shipment_count }}</td>
+            <td>{{ "%.2f"|format(row.total) }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="5" class="muted">No rows</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{% endblock %}

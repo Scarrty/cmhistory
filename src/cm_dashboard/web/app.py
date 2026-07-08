@@ -27,7 +27,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from cm_dashboard.config import load_settings
-from cm_dashboard.db import connect_database
+from cm_dashboard.db import create_database
+from cm_dashboard.reporting.queries import ReportingFilters, monthly_totals, period_totals
 
 
 WEB_DIR = Path(__file__).resolve().parent
@@ -41,18 +42,26 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/", response_class=HTMLResponse)
     def home(request: Request):
+        filters = _filters_from_request(request)
+        connection = create_database(app.state.database_path)
+        totals = period_totals(connection, filters)
+        monthly = monthly_totals(connection, filters)
         return templates.TemplateResponse(
             request,
-            "base.html",
+            "dashboard.html",
             {
                 "page_title": "Dashboard",
                 "active_nav": "dashboard",
+                "filters": filters,
+                "totals": totals,
+                "monthly": monthly,
+                "max_monthly_total": max((row["total"] for row in monthly), default=0),
             },
         )
 
     @app.get("/imports", response_class=HTMLResponse)
     def imports(request: Request):
-        connection = connect_database(app.state.database_path)
+        connection = create_database(app.state.database_path)
         files = connection.execute(
             """
             SELECT import_file_id, file_name, direction, entity, date_basis,
@@ -87,3 +96,9 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
 
 
 app = create_app()
+
+
+def _filters_from_request(request: Request) -> ReportingFilters:
+    start_date = request.query_params.get("start_date") or None
+    end_date = request.query_params.get("end_date") or None
+    return ReportingFilters(start_date=start_date, end_date=end_date)
