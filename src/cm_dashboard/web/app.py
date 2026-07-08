@@ -30,6 +30,7 @@ from cm_dashboard.config import load_settings
 from cm_dashboard.db import create_database
 from cm_dashboard.reporting.queries import (
     ReportingFilters,
+    fetch_article_lines,
     fetch_shipments,
     monthly_totals,
     period_totals,
@@ -111,6 +112,22 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
                 "active_nav": "shipments",
                 "filters": filters,
                 "shipments": rows,
+            },
+        )
+
+    @app.get("/articles", response_class=HTMLResponse)
+    def articles(request: Request):
+        filters = _filters_from_request(request)
+        connection = create_database(app.state.database_path)
+        rows = fetch_article_lines(connection, filters)
+        return templates.TemplateResponse(
+            request,
+            "articles.html",
+            {
+                "page_title": "Articles",
+                "active_nav": "articles",
+                "filters": filters,
+                "articles": rows,
             },
         )
 
