@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ page_title }} | Cardmarket History</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/">Cardmarket History</a>
+      <nav class="nav" aria-label="Primary">
+        <a href="/" class="{% if active_nav == 'dashboard' %}active{% endif %}">Dashboard</a>
+        <a href="/imports" class="{% if active_nav == 'imports' %}active{% endif %}">Imports</a>
+        <a href="/shipments" class="{% if active_nav == 'shipments' %}active{% endif %}">Shipments</a>
+        <a href="/articles" class="{% if active_nav == 'articles' %}active{% endif %}">Articles</a>
+      </nav>
+    </header>
+    <main class="page">
+      {% block content %}
+      <section class="panel">
+        <h1>{{ page_title }}</h1>
+      </section>
+      {% endblock %}
+    </main>
+  </body>
+</html>
