@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="stack">
+  <section class="panel">
+    <div class="section-header">
+      <h1>Shipments</h1>
+      <span class="muted">{{ shipments|length }} rows</span>
+    </div>
+    <form class="filter-row" method="get" action="/shipments">
+      <div class="field">
+        <label for="start_date">From</label>
+        <input id="start_date" name="start_date" type="date" value="{{ filters.start_date or '' }}">
+      </div>
+      <div class="field">
+        <label for="end_date">To</label>
+        <input id="end_date" name="end_date" type="date" value="{{ filters.end_date or '' }}">
+      </div>
+      <div class="field">
+        <label for="direction">Direction</label>
+        <input id="direction" name="direction" value="{{ filters.direction or '' }}">
+      </div>
+      <div class="field">
+        <label for="date_basis">Basis</label>
+        <input id="date_basis" name="date_basis" value="{{ filters.date_basis or '' }}">
+      </div>
+      <div class="field">
+        <label for="order_id">Order</label>
+        <input id="order_id" name="order_id" value="{{ filters.order_id or '' }}">
+      </div>
+      <div class="field">
+        <label for="username">Username</label>
+        <input id="username" name="username" value="{{ filters.username or '' }}">
+      </div>
+      <div class="field">
+        <label for="country">Country</label>
+        <input id="country" name="country" value="{{ filters.country or '' }}">
+      </div>
+      <button type="submit">Apply</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Direction</th>
+            <th>Username</th>
+            <th>Country</th>
+            <th>Articles</th>
+            <th>Merchandise</th>
+            <th>Shipping</th>
+            <th>Total</th>
+            <th>Currency</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for shipment in shipments %}
+          <tr>
+            <td><a href="/shipments/{{ shipment.order_id }}">{{ shipment.order_id }}</a></td>
+            <td>{{ shipment.direction }}</td>
+            <td>{{ shipment.username|mask_text }}</td>
+            <td>{{ shipment.country or "" }}</td>
+            <td>{{ shipment.article_count or "" }}</td>
+            <td>{{ shipment.merchandise_value or "" }}</td>
+            <td>{{ shipment.shipment_costs or "" }}</td>
+            <td>{{ shipment.total_value or "" }}</td>
+            <td>{{ shipment.currency or "" }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="9" class="muted">No rows</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{% endblock %}

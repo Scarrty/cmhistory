@@ -28,11 +28,17 @@ from fastapi.templating import Jinja2Templates
 
 from cm_dashboard.config import load_settings
 from cm_dashboard.db import create_database
-from cm_dashboard.reporting.queries import ReportingFilters, monthly_totals, period_totals
+from cm_dashboard.reporting.queries import (
+    ReportingFilters,
+    fetch_shipments,
+    monthly_totals,
+    period_totals,
+)
 
 
 WEB_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
+templates.env.filters["mask_text"] = lambda value: _mask_text(value)
 
 
 def create_app(database_path: str | Path | None = None) -> FastAPI:
@@ -92,6 +98,22 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
             },
         )
 
+    @app.get("/shipments", response_class=HTMLResponse)
+    def shipments(request: Request):
+        filters = _filters_from_request(request)
+        connection = create_database(app.state.database_path)
+        rows = fetch_shipments(connection, filters)
+        return templates.TemplateResponse(
+            request,
+            "shipments.html",
+            {
+                "page_title": "Shipments",
+                "active_nav": "shipments",
+                "filters": filters,
+                "shipments": rows,
+            },
+        )
+
     return app
 
 
@@ -101,4 +123,25 @@ app = create_app()
 def _filters_from_request(request: Request) -> ReportingFilters:
     start_date = request.query_params.get("start_date") or None
     end_date = request.query_params.get("end_date") or None
-    return ReportingFilters(start_date=start_date, end_date=end_date)
+    return ReportingFilters(
+        start_date=start_date,
+        end_date=end_date,
+        direction=request.query_params.get("direction") or None,
+        date_basis=request.query_params.get("date_basis") or None,
+        order_id=request.query_params.get("order_id") or None,
+        product_id=request.query_params.get("product_id") or None,
+        product_text=request.query_params.get("product_text") or None,
+        expansion=request.query_params.get("expansion") or None,
+        category=request.query_params.get("category") or None,
+        username=request.query_params.get("username") or None,
+        country=request.query_params.get("country") or None,
+    )
+
+
+def _mask_text(value) -> str:
+    text = "" if value is None else str(value)
+    if len(text) <= 1:
+        return "*" if text else ""
+    if len(text) == 2:
+        return f"{text[0]}*"
+    return f"{text[0]}***{text[-1]}"
