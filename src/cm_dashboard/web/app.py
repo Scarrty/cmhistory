@@ -131,6 +131,40 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
             },
         )
 
+    @app.get("/products/{product_id}", response_class=HTMLResponse)
+    def product_detail(request: Request, product_id: str):
+        connection = create_database(app.state.database_path)
+        product = connection.execute(
+            "SELECT product_id FROM products WHERE product_id = ?",
+            (product_id,),
+        ).fetchone()
+        if product is None:
+            raise HTTPException(status_code=404, detail="Product not found")
+        filters = ReportingFilters(product_id=product_id)
+        labels = connection.execute(
+            """
+            SELECT label
+            FROM product_labels
+            WHERE product_id = ?
+            ORDER BY label
+            """,
+            (product_id,),
+        ).fetchall()
+        articles = fetch_article_lines(connection, filters)
+        totals = period_totals(connection, filters)
+        return templates.TemplateResponse(
+            request,
+            "product_detail.html",
+            {
+                "page_title": f"Product {product_id}",
+                "active_nav": "articles",
+                "product": product,
+                "labels": labels,
+                "articles": articles,
+                "totals": totals,
+            },
+        )
+
     @app.get("/shipments/{order_id}", response_class=HTMLResponse)
     def shipment_detail(request: Request, order_id: str):
         connection = create_database(app.state.database_path)

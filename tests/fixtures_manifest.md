@@ -16,3 +16,5 @@ Set `CM_DASHBOARD_SOURCE_ROOT` to use a different local source folder.
 | `purchased_missing_2024_06_payment_articles` | `PURCHASED ARTICLES-BYPAYMENTDATE-2024-06-01_2024-06-30.XLS` | Missing purchase-date coverage comparison. |
 | `sold_missing_2019_01_payment_articles` | `SOLD ARTICLES-BYPAYMENTDATE-2019-01-01_2019-01-31.XLS` | Sold coverage gap comparison. |
 | `sold_missing_2025_08_purchase_articles` | `SOLD ARTICLES-BYPURCHASEDATE-2025-08-01_2025-08-31.XLS` | Sold purchase-date coverage gap comparison. |
+| `charizard_2016_payment_articles` | `PURCHASED ARTICLES-BYPAYMENTDATE-2016-10-01_2016-10-31.XLS` | Product detail localized label fixture with Charizard label. |
+| `charizard_2020_payment_articles` | `PURCHASED ARTICLES-BYPAYMENTDATE-2020-04-01_2020-04-30.XLS` | Product detail localized label fixture with Glurak label. |

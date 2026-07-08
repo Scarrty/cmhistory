@@ -55,6 +55,16 @@ FIXTURES: dict[str, SourceFixture] = {
         relative_path="SOLD ARTICLES-BYPURCHASEDATE-2025-08-01_2025-08-31.XLS",
         purpose="Sold purchase-date coverage gap comparison",
     ),
+    "charizard_2016_payment_articles": SourceFixture(
+        key="charizard_2016_payment_articles",
+        relative_path="PURCHASED ARTICLES-BYPAYMENTDATE-2016-10-01_2016-10-31.XLS",
+        purpose="Product detail localized label fixture with Charizard label",
+    ),
+    "charizard_2020_payment_articles": SourceFixture(
+        key="charizard_2020_payment_articles",
+        relative_path="PURCHASED ARTICLES-BYPAYMENTDATE-2020-04-01_2020-04-30.XLS",
+        purpose="Product detail localized label fixture with Glurak label",
+    ),
 }
 
 
