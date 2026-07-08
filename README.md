@@ -1,74 +1,88 @@
 # Cardmarket History Dashboard
 
-Planungs- und Analyse-Repository fuer ein lokales Cardmarket Sales/Purchase Dashboard.
+Lokales Cardmarket Sales/Purchase Dashboard fuer die Exportdateien dieses Accounts.
 
-Ziel ist eine schlanke Webanwendung, die Cardmarket-Exportdateien importiert, normalisiert, zusammengehoerige Artikel- und Shipment-Datensaetze korrekt verknuepft und als filterbares Sales/Purchase Dashboard auswertbar macht.
+Die Anwendung importiert Cardmarket XLS/CSV-Exporte, normalisiert Artikel und Shipments,
+verknuepft zusammengehoerige Datensaetze ueber Order-IDs und stellt die Daten als
+filterbares lokales Dashboard bereit.
 
 ## Status
 
-Dieses Repository enthaelt aktuell ein minimales Python-Projekt-Skeleton und die fachliche Vorarbeit fuer den spaeteren MVP:
+Der MVP ist als lokales Python/FastAPI/SQLite-Projekt umgesetzt. Enthalten sind:
 
-- Datenmodell aus den vorhandenen Cardmarket-Exporten
-- Product Requirements Document
-- kritische PRD-Feasibility-Review
-- konkreter MVP-Implementierungsplan
+- Quellordner-Scan fuer Cardmarket XLS/CSV-Dateien
+- Filename-Klassifizierung nach Richtung, Entitaet, Datumsbasis und Zeitraum
+- Raw-Staging mit Datei- und Zeilenreferenz
+- Normalisierung von Artikeln, Shipments, Events, Produkten, Labels, Sets und Kategorien
+- Verknuepfung von Artikelzeilen mit Shipments ueber Order-ID
+- Idempotenter Re-Import ohne doppelte normalisierte Fakten
+- Validierungsreport fuer bekannte Datenqualitaets- und Abdeckungsprobleme
+- Lokale Weboberflaeche mit Dashboard, Importstatus, Shipment-, Artikel- und Produktansichten
+- CSV-Export fuer einfache Zeitraumreports
 
-Es gibt noch keine Import-, Datenbank- oder Weblogik. Der Skeleton dient nur als Startpunkt fuer die testgetriebene Umsetzung aus dem MVP-Plan.
+## Setup
 
-## Wichtige Dokumente
+```powershell
+cd "D:\OneDrive\Dokumente\CM History"
+python -m venv .venv
+.\.venv\Scripts\python -m pip install -e ".[dev]"
+```
 
-| Datei | Zweck |
-|---|---|
-| `Datenmodell.md` | Strukturierte Interpretation der Cardmarket-Quelldaten und Zielmodell. |
-| `PRD_Cardmarket_Dashboard.md` | Produktanforderungen fuer das Dashboard. |
-| `OUTPUT/PRD_FEASIBILITY_REVIEW.md` | Kritische Pruefung des PRD gegen Datenmodell und XLS/CSV-Quellen. |
-| `OUTPUT/MVP_IMPLEMENTATION_PLAN.md` | Schrittweiser, testbarer Umsetzungsplan fuer den MVP. |
+## Import und Validierung
 
-## Datenbasis
+```powershell
+.\.venv\Scripts\python -m cm_dashboard.cli inspect-source --source "D:\OneDrive\Dokumente\CM History"
+.\.venv\Scripts\python -m cm_dashboard.cli import --source "D:\OneDrive\Dokumente\CM History" --db "data\cardmarket.db"
+.\.venv\Scripts\python -m cm_dashboard.cli validate --db "data\cardmarket.db"
+```
 
-Die Analyse basiert auf lokalen Cardmarket-Exporten im Arbeitsordner:
+Der Import kann erneut ausgefuehrt werden, wenn neue Monatsdateien im Quellordner liegen.
+Bereits importierte Dateien werden anhand Hash und Business Keys idempotent behandelt.
 
-- alte Excel-Dateien (`.XLS`)
-- CSV-Dateien (`.CSV`)
-- Zeitraum laut Analyse: 2016-04-01 bis 2026-07-06
-- 447 analysierte Quelldateien
-- 21.172 gelesene Datenzeilen
+## Web App starten
 
-Die Quelldateien enthalten private Account-, Handels- und teilweise personenbezogene Daten. Sie werden bewusst nicht versioniert.
+```powershell
+.\.venv\Scripts\python -m uvicorn cm_dashboard.web.app:app --reload
+```
 
-## Datenschutz und Repository-Regeln
+Danach lokal oeffnen:
 
-Die Datei `.gitignore` schliesst Cardmarket-Exportdateien aus:
+- `http://127.0.0.1:8000/` fuer Dashboard und Monatsdiagramm
+- `http://127.0.0.1:8000/imports` fuer Importdateien und Validierungsissues
+- `http://127.0.0.1:8000/shipments` fuer Bestell-/Shipment-Suche
+- `http://127.0.0.1:8000/articles` fuer Artikel- und Produktfilter
+- `http://127.0.0.1:8000/reports/period.csv` fuer CSV-Reports mit Query-Filtern
 
-- `*.XLS`
-- `*.xls`
-- `*.XLSX`
-- `*.xlsx`
-- `*.CSV`
-- `*.csv`
+## Monatliche Exporte
 
-Dadurch sollen private Cardmarket-Quelldaten nicht versehentlich auf GitHub gelangen. Im Repository sollen nur Dokumentation, Quellcode, Tests und nicht-sensitive Beispiel-/Fixture-Dateien liegen.
+Neue Cardmarket-Exports werden direkt in den lokalen Quellordner gelegt. Danach:
 
-## Geplanter MVP
+1. `inspect-source` ausfuehren und pruefen, ob die Datei erkannt wurde.
+2. `import` erneut ausfuehren.
+3. `validate` ausfuehren und Warnungen pruefen.
+4. Web App starten oder aktualisieren.
 
-Der MVP soll lokal laufen und zuerst die Datenqualitaet sicher beherrschen:
+Details stehen in [docs/monthly_import.md](docs/monthly_import.md).
 
-1. Import und Klassifizierung aktueller und zukuenftiger Cardmarket-Exports.
-2. Raw-Staging aller Quellzeilen mit Datei- und Zeilenreferenz.
-3. Normalisierung von Artikeln, Shipments, Produkten, Events und Importdateien.
-4. Korrekte Behandlung gruppierter Shipment-Zeilen.
-5. Dubletten-Erkennung zwischen ueberlappenden CSV/XLS-Exports.
-6. Filterbare Ansichten fuer Datum, Richtung, Artikel, Produkt, Set, Kategorie, Username, Land und Order-ID.
-7. Einfache Zeitraum-Reports und Basisdiagramme.
+## Datenschutz
 
-Details stehen in `OUTPUT/MVP_IMPLEMENTATION_PLAN.md`.
+Cardmarket-Quelldateien enthalten private Account-, Handels- und personenbezogene Daten.
+Sie werden nicht versioniert. Die `.gitignore` schliesst unter anderem aus:
 
-## Naechste Schritte
+- `*.XLS`, `*.xls`
+- `*.XLSX`, `*.xlsx`
+- `*.CSV`, `*.csv`
+- `data/*.db`
+- `.venv/`
 
-Die naechste sinnvolle Arbeit ist die Umsetzung von Task 2 aus dem MVP-Implementierungsplan:
+Normale Listen- und Detailseiten maskieren Nutzernamen und zeigen keine Adress-, Namens-
+oder VAT-Details an.
 
-1. Konfigurationsmodul fuer Quellordner und lokale SQLite-Datenbank anlegen.
-2. Lokale Import- und Validierungslogik testgetrieben aufbauen.
-3. Erst danach die Weboberflaeche umsetzen.
+## Entwicklung pruefen
 
-Die Importkorrektheit hat Vorrang vor UI-Arbeit, weil die Feasibility-Review konkrete Risiken bei XLS-Parsing, Unicode, gruppierten Shipment-Zeilen und Dubletten gezeigt hat.
+```powershell
+.\.venv\Scripts\python -m pytest
+.\.venv\Scripts\python -m ruff check src tests
+```
+
+Die umfangreichere lokale Vollpruefung wird mit dem MVP-Verifikationsskript gebuendelt.
