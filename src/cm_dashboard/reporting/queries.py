@@ -98,6 +98,67 @@ def fetch_shipments(
     return [_row_dict(row) for row in rows]
 
 
+def fetch_shipment_detail(
+    connection: sqlite3.Connection,
+    order_id: str,
+) -> dict[str, Any] | None:
+    row = connection.execute(
+        """
+        SELECT
+            shipment_id,
+            order_id,
+            direction,
+            username,
+            country,
+            article_count,
+            merchandise_value,
+            shipment_costs,
+            trustee_service_fee,
+            commission,
+            total_value,
+            currency
+        FROM shipments
+        WHERE order_id = ?
+        """,
+        (order_id,),
+    ).fetchone()
+    return _row_dict(row) if row else None
+
+
+def fetch_shipment_events(
+    connection: sqlite3.Connection,
+    shipment_id: int,
+) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        """
+        SELECT event_type, event_datetime
+        FROM shipment_events
+        WHERE shipment_id = ?
+        ORDER BY event_datetime
+        """,
+        (shipment_id,),
+    ).fetchall()
+    return [_row_dict(row) for row in rows]
+
+
+def fetch_shipment_articles(
+    connection: sqlite3.Connection,
+    shipment_id: int,
+) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        """
+        SELECT article_lines.*, import_files.file_name
+        FROM article_lines
+        LEFT JOIN import_files
+            ON import_files.import_file_id = article_lines.source_import_file_id
+        WHERE article_lines.shipment_id = ?
+        ORDER BY article_lines.article_line_id
+        """,
+        (shipment_id,),
+    ).fetchall()
+    return [_row_dict(row) for row in rows]
+
+
 def period_totals(
     connection: sqlite3.Connection,
     filters: ReportingFilters | None = None,

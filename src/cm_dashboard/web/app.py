@@ -33,6 +33,9 @@ from cm_dashboard.db import create_database
 from cm_dashboard.reporting.queries import (
     ReportingFilters,
     fetch_article_lines,
+    fetch_shipment_articles,
+    fetch_shipment_detail,
+    fetch_shipment_events,
     fetch_shipments,
     monthly_totals,
     period_report_rows,
@@ -192,32 +195,11 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     @app.get("/shipments/{order_id}", response_class=HTMLResponse)
     def shipment_detail(request: Request, order_id: str):
         connection = create_database(app.state.database_path)
-        shipment = connection.execute(
-            "SELECT * FROM shipments WHERE order_id = ?",
-            (order_id,),
-        ).fetchone()
+        shipment = fetch_shipment_detail(connection, order_id)
         if shipment is None:
             raise HTTPException(status_code=404, detail="Shipment not found")
-        events = connection.execute(
-            """
-            SELECT event_type, event_datetime
-            FROM shipment_events
-            WHERE shipment_id = ?
-            ORDER BY event_datetime
-            """,
-            (shipment["shipment_id"],),
-        ).fetchall()
-        articles = connection.execute(
-            """
-            SELECT article_lines.*, import_files.file_name
-            FROM article_lines
-            LEFT JOIN import_files
-                ON import_files.import_file_id = article_lines.source_import_file_id
-            WHERE article_lines.shipment_id = ?
-            ORDER BY article_lines.article_line_id
-            """,
-            (shipment["shipment_id"],),
-        ).fetchall()
+        events = fetch_shipment_events(connection, shipment["shipment_id"])
+        articles = fetch_shipment_articles(connection, shipment["shipment_id"])
         return templates.TemplateResponse(
             request,
             "shipment_detail.html",
