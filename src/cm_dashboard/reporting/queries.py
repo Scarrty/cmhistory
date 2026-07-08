@@ -148,6 +148,40 @@ def monthly_totals(
     return [_row_dict(row) for row in rows]
 
 
+def period_report_rows(
+    connection: sqlite3.Connection,
+    filters: ReportingFilters | None = None,
+) -> list[dict[str, Any]]:
+    filters = filters or ReportingFilters()
+    totals = period_totals(connection, filters)
+    rows = [
+        {
+            "section": "period",
+            "month": "",
+            "direction": "ALL",
+            "article_line_count": totals["article_line_count"],
+            "shipment_count": totals["shipment_count"],
+            "purchase_total": totals["purchase_total"],
+            "sales_total": totals["sales_total"],
+            "total": totals["combined_total"],
+        }
+    ]
+    rows.extend(
+        {
+            "section": "monthly",
+            "month": row["month"],
+            "direction": row["direction"],
+            "article_line_count": row["article_line_count"],
+            "shipment_count": row["shipment_count"],
+            "purchase_total": "",
+            "sales_total": "",
+            "total": row["total"],
+        }
+        for row in monthly_totals(connection, filters)
+    )
+    return rows
+
+
 def _article_where(filters: ReportingFilters) -> tuple[str, list[Any]]:
     clauses: list[str] = []
     params: list[Any] = []

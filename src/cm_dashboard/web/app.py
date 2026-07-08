@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import typing
 from pathlib import Path
 
@@ -22,7 +24,7 @@ def _patch_python314_typing_for_pydantic() -> None:
 _patch_python314_typing_for_pydantic()
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -33,11 +35,22 @@ from cm_dashboard.reporting.queries import (
     fetch_article_lines,
     fetch_shipments,
     monthly_totals,
+    period_report_rows,
     period_totals,
 )
 
 
 WEB_DIR = Path(__file__).resolve().parent
+PERIOD_REPORT_FIELDS = (
+    "section",
+    "month",
+    "direction",
+    "article_line_count",
+    "shipment_count",
+    "purchase_total",
+    "sales_total",
+    "total",
+)
 templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
 templates.env.filters["mask_text"] = lambda value: _mask_text(value)
 
@@ -165,6 +178,17 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
             },
         )
 
+    @app.get("/reports/period.csv")
+    def period_report(request: Request):
+        filters = _filters_from_request(request)
+        connection = create_database(app.state.database_path)
+        body = _csv_body(period_report_rows(connection, filters))
+        return Response(
+            body,
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="period-report.csv"'},
+        )
+
     @app.get("/shipments/{order_id}", response_class=HTMLResponse)
     def shipment_detail(request: Request, order_id: str):
         connection = create_database(app.state.database_path)
@@ -237,3 +261,11 @@ def _mask_text(value) -> str:
     if len(text) == 2:
         return f"{text[0]}*"
     return f"{text[0]}***{text[-1]}"
+
+
+def _csv_body(rows: list[dict]) -> str:
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=PERIOD_REPORT_FIELDS, lineterminator="\n")
+    writer.writeheader()
+    writer.writerows(rows)
+    return buffer.getvalue()
