@@ -24,6 +24,7 @@ from cm_dashboard.importing.readers import read_spreadsheet
 from cm_dashboard.importing.schemas import validate_headers
 from cm_dashboard.importing.shipment_import import import_shipment_sheet
 from cm_dashboard.importing.source_scan import SourceFile, scan_source_files
+from cm_dashboard.importing.validation import refresh_validation_issues
 from cm_dashboard.importing.version import NORMALIZATION_VERSION
 
 
@@ -203,6 +204,7 @@ def import_source_folder(
             )
     with connection:
         link_article_lines_to_shipments(connection, record_issues=False)
+    refresh_validation_issues(connection)
     return tuple(results)
 
 

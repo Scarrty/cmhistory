@@ -45,6 +45,7 @@ def write_shipment_source(
     *,
     order_id: str = "order-1001",
     username: str = "synthetic-user",
+    overrides: Mapping[str, str] | None = None,
 ) -> Path:
     metadata = require_parsed_filename(path)
     date_column = (
@@ -73,6 +74,7 @@ def write_shipment_source(
         "Product ID": "product-2001",
         "Localized Product Name": "Synthetic Card",
     }
+    header.update(overrides or {})
     return _write_source(path, metadata, (header,))
 
 

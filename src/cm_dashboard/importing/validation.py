@@ -7,7 +7,13 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-from cm_dashboard.importing.filename import DateBasis, ParsedFilename
+from cm_dashboard.importing.filename import (
+    DateBasis,
+    Direction,
+    ExportEntity,
+    FileExtension,
+    ParsedFilename,
+)
 from cm_dashboard.importing.readers import read_spreadsheet
 from cm_dashboard.importing.schemas import validate_headers
 from cm_dashboard.importing.source_scan import scan_source_files
@@ -26,6 +32,17 @@ class ValidationIssue:
     date_basis: str | None = None
     period_start: date | None = None
     period_end: date | None = None
+
+
+DERIVED_VALIDATION_CODES = {
+    "article_shipment_mismatch",
+    "conflicting_shipment_event",
+    "duplicate_article_source_overlap",
+    "missing_period_coverage",
+    "shipment_grouping_summary",
+    "shipment_total_mismatch",
+    "unmatched_article_order",
+}
 
 
 def validate_source_folder(
@@ -60,8 +77,14 @@ def validate_source_folder(
 
 def validate_database(connection: sqlite3.Connection) -> tuple[ValidationIssue, ...]:
     issues: list[ValidationIssue] = []
+    issues.extend(_database_coverage_issues(connection))
     issues.extend(_unmatched_article_issues(connection))
-    issues.extend(_duplicate_raw_article_issues(connection))
+    duplicate_issue = _duplicate_raw_article_summary_issue(connection)
+    if duplicate_issue is not None:
+        issues.append(duplicate_issue)
+    issues.extend(_article_shipment_reconciliation_issues(connection))
+    issues.extend(_shipment_total_issues(connection))
+    issues.extend(_shipment_event_conflict_issues(connection))
     grouping_issue = _shipment_grouping_summary_issue(connection)
     if grouping_issue is not None:
         issues.append(grouping_issue)
@@ -91,6 +114,37 @@ def persist_validation_issues(
             ),
         )
     return len(issues)
+
+
+def refresh_validation_issues(
+    connection: sqlite3.Connection,
+    issues: tuple[ValidationIssue, ...] | None = None,
+) -> int:
+    resolved_issues = issues if issues is not None else validate_database(connection)
+    placeholders = ", ".join("?" for _ in DERIVED_VALIDATION_CODES)
+    with connection:
+        connection.execute(
+            f"DELETE FROM import_issues WHERE code IN ({placeholders})",
+            tuple(sorted(DERIVED_VALIDATION_CODES)),
+        )
+        connection.executemany(
+            """
+            INSERT INTO import_issues (
+                import_file_id, severity, code, message, source_row_number
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                (
+                    issue.import_file_id,
+                    issue.severity,
+                    issue.code,
+                    issue.message,
+                    issue.source_row_number,
+                )
+                for issue in resolved_issues
+            ),
+        )
+    return len(resolved_issues)
 
 
 def _issues_for_headers(
@@ -156,6 +210,31 @@ def _coverage_issues(metadata_items: list[ParsedFilename]) -> tuple[ValidationIs
     return tuple(issues)
 
 
+def _database_coverage_issues(connection: sqlite3.Connection) -> tuple[ValidationIssue, ...]:
+    rows = connection.execute(
+        """
+        SELECT file_name, file_extension, direction, entity, date_basis,
+               period_start, period_end
+        FROM import_files
+        WHERE import_status = 'imported'
+        ORDER BY import_file_id
+        """
+    ).fetchall()
+    metadata = [
+        ParsedFilename(
+            file_name=row["file_name"],
+            file_extension=FileExtension(row["file_extension"]),
+            direction=Direction(row["direction"]),
+            entity=ExportEntity(row["entity"]),
+            date_basis=DateBasis(row["date_basis"]),
+            period_start=date.fromisoformat(row["period_start"]),
+            period_end=date.fromisoformat(row["period_end"]),
+        )
+        for row in rows
+    ]
+    return _coverage_issues(metadata)
+
+
 def _unmatched_article_issues(connection: sqlite3.Connection) -> tuple[ValidationIssue, ...]:
     rows = connection.execute(
         """
@@ -179,24 +258,122 @@ def _unmatched_article_issues(connection: sqlite3.Connection) -> tuple[Validatio
     )
 
 
-def _duplicate_raw_article_issues(connection: sqlite3.Connection) -> tuple[ValidationIssue, ...]:
+def _duplicate_raw_article_summary_issue(
+    connection: sqlite3.Connection,
+) -> ValidationIssue | None:
+    row = connection.execute(
+        """
+        SELECT COUNT(*) AS overlap_count
+        FROM (
+            SELECT business_key
+            FROM raw_article_rows
+            WHERE business_key IS NOT NULL
+            GROUP BY business_key
+            HAVING COUNT(*) > 1
+        )
+        """
+    ).fetchone()
+    if not row or row["overlap_count"] == 0:
+        return None
+    return ValidationIssue(
+        severity="info",
+        code="duplicate_article_source_overlap",
+        message=(
+            f"{row['overlap_count']} article rows occur in parallel source exports and are "
+            "counted once in normalized reports"
+        ),
+    )
+
+
+def _article_shipment_reconciliation_issues(
+    connection: sqlite3.Connection,
+) -> tuple[ValidationIssue, ...]:
     rows = connection.execute(
         """
-        SELECT business_key, COUNT(*) AS duplicate_count, MIN(import_file_id) AS import_file_id
-        FROM raw_article_rows
-        WHERE business_key IS NOT NULL
-        GROUP BY business_key
-        HAVING COUNT(*) > 1
-        ORDER BY duplicate_count DESC
+        SELECT
+            article_lines.direction,
+            article_lines.order_id,
+            article_lines.date_basis,
+            SUM(article_lines.quantity) AS line_quantity,
+            ROUND(SUM(CAST(article_lines.total AS REAL)), 2) AS line_total,
+            shipments.article_count,
+            ROUND(CAST(shipments.merchandise_value AS REAL), 2) AS merchandise_value,
+            MIN(article_lines.source_import_file_id) AS import_file_id
+        FROM article_lines
+        JOIN shipments ON shipments.shipment_id = article_lines.shipment_id
+        GROUP BY article_lines.direction, article_lines.order_id, article_lines.date_basis
+        HAVING
+            (shipments.article_count IS NOT NULL AND line_quantity != shipments.article_count)
+            OR (shipments.merchandise_value IS NOT NULL
+                AND ABS(line_total - merchandise_value) > 0.01)
+        ORDER BY article_lines.direction, article_lines.order_id, article_lines.date_basis
         """
     ).fetchall()
     return tuple(
         ValidationIssue(
             severity="warning",
-            code="duplicate_article_business_key",
+            code="article_shipment_mismatch",
             message=(
-                f"Article business key occurs {row['duplicate_count']} times "
-                "across raw exports"
+                f"{row['direction']} order {row['order_id']} ({row['date_basis']}) has "
+                f"article quantity/value {row['line_quantity']}/{row['line_total']} but "
+                f"shipment values {row['article_count']}/{row['merchandise_value']}"
+            ),
+            import_file_id=row["import_file_id"],
+        )
+        for row in rows
+    )
+
+
+def _shipment_total_issues(connection: sqlite3.Connection) -> tuple[ValidationIssue, ...]:
+    rows = connection.execute(
+        """
+        SELECT shipment_id, direction, order_id, merchandise_value, shipment_costs,
+               trustee_service_fee, total_value
+        FROM shipments
+        WHERE total_value IS NOT NULL
+          AND ABS(
+              CAST(total_value AS REAL)
+              - CAST(merchandise_value AS REAL)
+              - CAST(shipment_costs AS REAL)
+              - CASE WHEN direction = 'PURCHASED'
+                     THEN COALESCE(CAST(trustee_service_fee AS REAL), 0)
+                     ELSE 0 END
+          ) > 0.01
+        ORDER BY direction, order_id
+        """
+    ).fetchall()
+    return tuple(
+        ValidationIssue(
+            severity="warning",
+            code="shipment_total_mismatch",
+            message=f"{row['direction']} order {row['order_id']} has inconsistent total value",
+        )
+        for row in rows
+    )
+
+
+def _shipment_event_conflict_issues(
+    connection: sqlite3.Connection,
+) -> tuple[ValidationIssue, ...]:
+    rows = connection.execute(
+        """
+        SELECT shipments.direction, shipments.order_id, shipment_events.event_type,
+               COUNT(DISTINCT shipment_events.event_datetime) AS value_count,
+               MIN(shipment_events.source_import_file_id) AS import_file_id
+        FROM shipment_events
+        JOIN shipments USING (shipment_id)
+        GROUP BY shipment_events.shipment_id, shipment_events.event_type
+        HAVING COUNT(DISTINCT shipment_events.event_datetime) > 1
+        ORDER BY shipments.direction, shipments.order_id, shipment_events.event_type
+        """
+    ).fetchall()
+    return tuple(
+        ValidationIssue(
+            severity="warning",
+            code="conflicting_shipment_event",
+            message=(
+                f"{row['direction']} order {row['order_id']} has {row['value_count']} "
+                f"different {row['event_type']} timestamps"
             ),
             import_file_id=row["import_file_id"],
         )
