@@ -45,7 +45,8 @@ def test_articles_page_filters_articles_and_links_to_shipments(tmp_path) -> None
     assert response.status_code == 200
     assert escape(sample["article_name_snapshot"]) in response.text
     assert (
-        f'href="/shipments/{sample["order_id"]}?direction={sample["direction"]}"'
+        f'href="/shipments/{sample["order_id"]}?direction={sample["direction"]}'
+        f'&amp;date_basis={sample["date_basis"]}"'
         in response.text
     )
     assert f'href="/products/{sample["product_id"]}"' in response.text

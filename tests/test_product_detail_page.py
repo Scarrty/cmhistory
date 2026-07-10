@@ -55,7 +55,10 @@ def test_product_detail_page_shows_labels_totals_and_article_lines(tmp_path) -> 
     assert "Purchases" in response.text
     assert "Sales" in response.text
     for order_id, direction in orders:
-        assert f'href="/shipments/{order_id}?direction={direction}"' in response.text
+        assert (
+            f'href="/shipments/{order_id}?direction={direction}&amp;date_basis=PAYMENTDATE"'
+            in response.text
+        )
 
 
 def test_product_detail_page_returns_404_for_unknown_product(tmp_path) -> None:

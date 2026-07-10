@@ -28,6 +28,7 @@ def test_period_report_csv_uses_filters_and_expected_headers(tmp_path) -> None:
     rows = list(csv.DictReader(StringIO(response.text)))
     assert rows[0].keys() == {
         "section",
+        "date_basis",
         "month",
         "direction",
         "article_line_count",
@@ -38,6 +39,7 @@ def test_period_report_csv_uses_filters_and_expected_headers(tmp_path) -> None:
     }
     assert rows[0] == {
         "section": "period",
+        "date_basis": "PAYMENTDATE",
         "month": "",
         "direction": "ALL",
         "article_line_count": "1",
@@ -47,6 +49,7 @@ def test_period_report_csv_uses_filters_and_expected_headers(tmp_path) -> None:
         "total": "39.6",
     }
     assert rows[1]["section"] == "monthly"
+    assert rows[1]["date_basis"] == "PAYMENTDATE"
     assert rows[1]["month"] == "2016-06"
     assert rows[1]["direction"] == "PURCHASED"
     assert rows[1]["total"] == "39.6"

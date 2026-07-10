@@ -94,6 +94,7 @@ a {
 }
 
 input,
+select,
 button {
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -144,7 +145,7 @@ button {
   align-items: center;
   display: grid;
   gap: 10px;
-  grid-template-columns: 90px minmax(140px, 1fr) 110px;
+  grid-template-columns: 190px minmax(140px, 1fr) 110px;
 }
 
 .chart-track {
@@ -158,6 +159,10 @@ button {
   background: var(--accent);
   height: 100%;
   width: 0;
+}
+
+.chart-bar.sold {
+  background: #2563eb;
 }
 
 .stack {
@@ -264,6 +269,6 @@ h2 {
   }
 
   .chart-row {
-    grid-template-columns: 72px minmax(90px, 1fr) 80px;
+    grid-template-columns: 145px minmax(90px, 1fr) 80px;
   }
 }

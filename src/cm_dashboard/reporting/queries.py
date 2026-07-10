@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
+DEFAULT_DATE_BASIS = "PAYMENTDATE"
+
 
 class AmbiguousShipmentError(LookupError):
     """Raised when an Order ID exists in both business directions."""
@@ -17,7 +19,7 @@ class ReportingFilters:
     start_date: str | date | None = None
     end_date: str | date | None = None
     direction: str | None = None
-    date_basis: str | None = None
+    date_basis: str | None = DEFAULT_DATE_BASIS
     order_id: str | None = None
     product_id: str | None = None
     product_text: str | None = None
@@ -158,6 +160,8 @@ def fetch_shipment_events(
 def fetch_shipment_articles(
     connection: sqlite3.Connection,
     shipment_id: int,
+    *,
+    date_basis: str = DEFAULT_DATE_BASIS,
 ) -> list[dict[str, Any]]:
     rows = connection.execute(
         """
@@ -165,10 +169,10 @@ def fetch_shipment_articles(
         FROM article_lines
         LEFT JOIN import_files
             ON import_files.import_file_id = article_lines.source_import_file_id
-        WHERE article_lines.shipment_id = ?
+        WHERE article_lines.shipment_id = ? AND article_lines.date_basis = ?
         ORDER BY article_lines.article_line_id
         """,
-        (shipment_id,),
+        (shipment_id, date_basis),
     ).fetchall()
     return [_row_dict(row) for row in rows]
 
@@ -234,6 +238,7 @@ def period_report_rows(
     rows = [
         {
             "section": "period",
+            "date_basis": filters.date_basis or "ALL",
             "month": "",
             "direction": "ALL",
             "article_line_count": totals["article_line_count"],
@@ -246,6 +251,7 @@ def period_report_rows(
     rows.extend(
         {
             "section": "monthly",
+            "date_basis": filters.date_basis or "ALL",
             "month": row["month"],
             "direction": row["direction"],
             "article_line_count": row["article_line_count"],

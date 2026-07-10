@@ -1,7 +1,7 @@
 import pytest
 
 from cm_dashboard.db import create_database
-from cm_dashboard.importing.pipeline import import_source_file
+from cm_dashboard.importing.pipeline import import_source_file, import_source_folder
 from cm_dashboard.importing.source_scan import SourceFile
 from cm_dashboard.reporting.queries import (
     AmbiguousShipmentError,
@@ -13,7 +13,7 @@ from cm_dashboard.reporting.queries import (
     period_totals,
 )
 from tests.fixtures import require_fixture_path
-from tests.synthetic_sources import write_shipment_source
+from tests.synthetic_sources import write_article_source, write_shipment_source
 
 
 @pytest.fixture()
@@ -152,6 +152,29 @@ def test_shipment_detail_requires_direction_for_cross_direction_collision(tmp_pa
     sold = fetch_shipment_detail(connection, shared_order_id, direction="SOLD")
     assert purchased is not None and purchased["direction"] == "PURCHASED"
     assert sold is not None and sold["direction"] == "SOLD"
+
+
+def test_default_reporting_basis_does_not_double_count_event_views(tmp_path) -> None:
+    connection = create_database(tmp_path / "cardmarket.db")
+    source = tmp_path / "source"
+    for basis in ("PURCHASEDATE", "PAYMENTDATE"):
+        write_article_source(
+            source / f"SOLD ARTICLES-BY{basis}-2026-08-01_2026-08-31.CSV"
+        )
+    import_source_folder(connection, source)
+
+    default_totals = period_totals(connection)
+    purchase_totals = period_totals(
+        connection, ReportingFilters(date_basis="PURCHASEDATE")
+    )
+    all_views = period_totals(connection, ReportingFilters(date_basis=None))
+
+    assert default_totals["article_line_count"] == 1
+    assert default_totals["sales_total"] == 8
+    assert purchase_totals["article_line_count"] == 1
+    assert purchase_totals["sales_total"] == 8
+    assert all_views["article_line_count"] == 2
+    assert all_views["sales_total"] == 16
 
 
 def _metadata(path):

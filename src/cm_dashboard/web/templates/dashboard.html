@@ -15,6 +15,21 @@
         <label for="end_date">To</label>
         <input id="end_date" name="end_date" type="date" value="{{ filters.end_date or '' }}">
       </div>
+      <div class="field">
+        <label for="direction">Direction</label>
+        <select id="direction" name="direction">
+          <option value="" {% if not filters.direction %}selected{% endif %}>Both</option>
+          <option value="PURCHASED" {% if filters.direction == 'PURCHASED' %}selected{% endif %}>Purchased</option>
+          <option value="SOLD" {% if filters.direction == 'SOLD' %}selected{% endif %}>Sold</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="date_basis">Date basis</label>
+        <select id="date_basis" name="date_basis">
+          <option value="PAYMENTDATE" {% if filters.date_basis == 'PAYMENTDATE' %}selected{% endif %}>Payment date</option>
+          <option value="PURCHASEDATE" {% if filters.date_basis == 'PURCHASEDATE' %}selected{% endif %}>Purchase date</option>
+        </select>
+      </div>
       <button type="submit">Apply</button>
     </form>
   </section>
@@ -46,10 +61,10 @@
     <div class="chart" role="img" aria-label="Monthly purchase and sales totals">
       {% for row in monthly %}
       <div class="chart-row">
-        <span>{{ row.month }}</span>
+        <span>{{ row.month }} · {{ row.direction }}</span>
         <div class="chart-track">
           <div
-            class="chart-bar"
+            class="chart-bar {{ row.direction|lower }}"
             data-chart-bar
             data-value="{{ row.total }}"
             data-max="{{ max_monthly_total }}"

@@ -6,6 +6,7 @@ from __future__ import annotations
 import csv
 import io
 import typing
+from datetime import date
 from pathlib import Path
 
 
@@ -32,6 +33,7 @@ from fastapi.templating import Jinja2Templates
 from cm_dashboard.config import load_settings
 from cm_dashboard.db import create_database
 from cm_dashboard.reporting.queries import (
+    DEFAULT_DATE_BASIS,
     AmbiguousShipmentError,
     ReportingFilters,
     fetch_article_lines,
@@ -47,6 +49,7 @@ from cm_dashboard.reporting.queries import (
 WEB_DIR = Path(__file__).resolve().parent
 PERIOD_REPORT_FIELDS = (
     "section",
+    "date_basis",
     "month",
     "direction",
     "article_line_count",
@@ -194,7 +197,19 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
         )
 
     @app.get("/shipments/{order_id}", response_class=HTMLResponse)
-    def shipment_detail(request: Request, order_id: str, direction: str | None = None):
+    def shipment_detail(
+        request: Request,
+        order_id: str,
+        direction: str | None = None,
+        date_basis: str = DEFAULT_DATE_BASIS,
+    ):
+        direction = _validated_choice("direction", direction, {"PURCHASED", "SOLD"})
+        date_basis = _validated_choice(
+            "date_basis",
+            date_basis,
+            {"PURCHASEDATE", "PAYMENTDATE"},
+            default=DEFAULT_DATE_BASIS,
+        )
         connection = create_database(app.state.database_path)
         try:
             shipment = fetch_shipment_detail(connection, order_id, direction=direction)
@@ -203,7 +218,11 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
         if shipment is None:
             raise HTTPException(status_code=404, detail="Shipment not found")
         events = fetch_shipment_events(connection, shipment["shipment_id"])
-        articles = fetch_shipment_articles(connection, shipment["shipment_id"])
+        articles = fetch_shipment_articles(
+            connection,
+            shipment["shipment_id"],
+            date_basis=date_basis,
+        )
         return templates.TemplateResponse(
             request,
             "shipment_detail.html",
@@ -213,6 +232,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
                 "shipment": shipment,
                 "events": events,
                 "articles": articles,
+                "date_basis": date_basis,
             },
         )
 
@@ -223,13 +243,24 @@ app = create_app()
 
 
 def _filters_from_request(request: Request) -> ReportingFilters:
-    start_date = request.query_params.get("start_date") or None
-    end_date = request.query_params.get("end_date") or None
+    start_date = _validated_date("start_date", request.query_params.get("start_date"))
+    end_date = _validated_date("end_date", request.query_params.get("end_date"))
+    if start_date and end_date and end_date < start_date:
+        raise HTTPException(status_code=422, detail="end_date must not be before start_date")
     return ReportingFilters(
-        start_date=start_date,
-        end_date=end_date,
-        direction=request.query_params.get("direction") or None,
-        date_basis=request.query_params.get("date_basis") or None,
+        start_date=start_date.isoformat() if start_date else None,
+        end_date=end_date.isoformat() if end_date else None,
+        direction=_validated_choice(
+            "direction",
+            request.query_params.get("direction"),
+            {"PURCHASED", "SOLD"},
+        ),
+        date_basis=_validated_choice(
+            "date_basis",
+            request.query_params.get("date_basis"),
+            {"PURCHASEDATE", "PAYMENTDATE"},
+            default=DEFAULT_DATE_BASIS,
+        ),
         order_id=request.query_params.get("order_id") or None,
         product_id=request.query_params.get("product_id") or None,
         product_text=request.query_params.get("product_text") or None,
@@ -238,6 +269,29 @@ def _filters_from_request(request: Request) -> ReportingFilters:
         username=request.query_params.get("username") or None,
         country=request.query_params.get("country") or None,
     )
+
+
+def _validated_date(name: str, value: str | None) -> date | None:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"{name} must be an ISO date") from exc
+
+
+def _validated_choice(
+    name: str,
+    value: str | None,
+    allowed: set[str],
+    *,
+    default: str | None = None,
+) -> str | None:
+    normalized = value or default
+    if normalized is not None and normalized not in allowed:
+        choices = ", ".join(sorted(allowed))
+        raise HTTPException(status_code=422, detail=f"{name} must be one of: {choices}")
+    return normalized
 
 
 def _mask_text(value) -> str:

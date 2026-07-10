@@ -18,11 +18,18 @@
       </div>
       <div class="field">
         <label for="direction">Direction</label>
-        <input id="direction" name="direction" value="{{ filters.direction or '' }}">
+        <select id="direction" name="direction">
+          <option value="" {% if not filters.direction %}selected{% endif %}>Both</option>
+          <option value="PURCHASED" {% if filters.direction == 'PURCHASED' %}selected{% endif %}>Purchased</option>
+          <option value="SOLD" {% if filters.direction == 'SOLD' %}selected{% endif %}>Sold</option>
+        </select>
       </div>
       <div class="field">
         <label for="date_basis">Basis</label>
-        <input id="date_basis" name="date_basis" value="{{ filters.date_basis or '' }}">
+        <select id="date_basis" name="date_basis">
+          <option value="PAYMENTDATE" {% if filters.date_basis == 'PAYMENTDATE' %}selected{% endif %}>Payment date</option>
+          <option value="PURCHASEDATE" {% if filters.date_basis == 'PURCHASEDATE' %}selected{% endif %}>Purchase date</option>
+        </select>
       </div>
       <div class="field">
         <label for="order_id">Order</label>
@@ -70,7 +77,7 @@
           {% for article in articles %}
           <tr>
             <td>{{ article.event_datetime }}</td>
-            <td><a href="/shipments/{{ article.order_id }}?direction={{ article.direction }}">{{ article.order_id }}</a></td>
+            <td><a href="/shipments/{{ article.order_id }}?direction={{ article.direction }}&amp;date_basis={{ article.date_basis }}">{{ article.order_id }}</a></td>
             <td>{{ article.direction }}</td>
             <td>{{ article.article_name_snapshot }}</td>
             <td><a href="/products/{{ article.product_id }}">{{ article.product_id }}</a></td>
