@@ -1,3 +1,5 @@
+from zipfile import ZIP_DEFLATED, ZipFile
+
 from cm_dashboard.importing.readers import read_spreadsheet
 from tests.fixtures import require_fixture_path
 
@@ -23,6 +25,17 @@ def test_read_csv_fixture_with_same_interface() -> None:
     assert all(len(row) == len(sheet.headers) for row in sheet.rows)
 
 
+def test_read_xlsx_with_same_interface(tmp_path) -> None:
+    path = tmp_path / "SOLD ARTICLES-BYPURCHASEDATE-2026-08-01_2026-08-31.XLSX"
+    _write_minimal_xlsx(path)
+
+    sheet = read_spreadsheet(path)
+
+    assert sheet.sheet_name == "Worksheet"
+    assert sheet.headers == ("Shipment nr.", "Article")
+    assert sheet.rows == ((1001.0, "Synthetic Card"),)
+
+
 def test_read_xls_preserves_unicode_text() -> None:
     sheet = read_spreadsheet(require_fixture_path("unicode_shipment"))
     street_index = sheet.headers.index("Street")
@@ -39,3 +52,49 @@ def test_unsupported_extension_is_explicit() -> None:
         assert "Unsupported spreadsheet extension" in str(exc)
     else:
         raise AssertionError("Expected unsupported extension to raise")
+
+
+def _write_minimal_xlsx(path) -> None:
+    files = {
+        "[Content_Types].xml": """<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml"
+    ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml"
+    ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+</Types>""",
+        "_rels/.rels": """<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1"
+    Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"
+    Target="xl/workbook.xml"/>
+</Relationships>""",
+        "xl/workbook.xml": """<?xml version="1.0" encoding="UTF-8"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets><sheet name="Worksheet" sheetId="1" r:id="rId1"/></sheets>
+</workbook>""",
+        "xl/_rels/workbook.xml.rels": """<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1"
+    Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet"
+    Target="worksheets/sheet1.xml"/>
+</Relationships>""",
+        "xl/worksheets/sheet1.xml": """<?xml version="1.0" encoding="UTF-8"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <sheetData>
+    <row r="1">
+      <c r="A1" t="inlineStr"><is><t>Shipment nr.</t></is></c>
+      <c r="B1" t="inlineStr"><is><t>Article</t></is></c>
+    </row>
+    <row r="2">
+      <c r="A2"><v>1001</v></c>
+      <c r="B2" t="inlineStr"><is><t>Synthetic Card</t></is></c>
+    </row>
+  </sheetData>
+</worksheet>""",
+    }
+    with ZipFile(path, "w", ZIP_DEFLATED) as workbook:
+        for name, content in files.items():
+            workbook.writestr(name, content)
