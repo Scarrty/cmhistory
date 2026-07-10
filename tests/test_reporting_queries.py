@@ -4,13 +4,16 @@ from cm_dashboard.db import create_database
 from cm_dashboard.importing.pipeline import import_source_file
 from cm_dashboard.importing.source_scan import SourceFile
 from cm_dashboard.reporting.queries import (
+    AmbiguousShipmentError,
     ReportingFilters,
     fetch_article_lines,
+    fetch_shipment_detail,
     fetch_shipments,
     monthly_totals,
     period_totals,
 )
 from tests.fixtures import require_fixture_path
+from tests.synthetic_sources import write_shipment_source
 
 
 @pytest.fixture()
@@ -128,6 +131,27 @@ def test_monthly_totals_groups_by_month_and_direction(imported_connection) -> No
             "total": rows[0]["total"],
         }
     ]
+
+
+def test_shipment_detail_requires_direction_for_cross_direction_collision(tmp_path) -> None:
+    connection = create_database(tmp_path / "cardmarket.db")
+    source = tmp_path / "source"
+    shared_order_id = "shared-order"
+    for direction in ("PURCHASED", "SOLD"):
+        path = write_shipment_source(
+            source
+            / f"{direction} SHIPMENTS-BYPAYMENTDATE-2026-08-01_2026-08-31.CSV",
+            order_id=shared_order_id,
+        )
+        import_source_file(connection, SourceFile(path=path, metadata=_metadata(path)))
+
+    with pytest.raises(AmbiguousShipmentError):
+        fetch_shipment_detail(connection, shared_order_id)
+
+    purchased = fetch_shipment_detail(connection, shared_order_id, direction="PURCHASED")
+    sold = fetch_shipment_detail(connection, shared_order_id, direction="SOLD")
+    assert purchased is not None and purchased["direction"] == "PURCHASED"
+    assert sold is not None and sold["direction"] == "SOLD"
 
 
 def _metadata(path):

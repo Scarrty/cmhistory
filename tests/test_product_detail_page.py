@@ -30,10 +30,15 @@ def test_product_detail_page_shows_labels_totals_and_article_lines(tmp_path) -> 
             (product["product_id"],),
         ).fetchall()
     ]
-    order_ids = [
-        row["order_id"]
+    orders = [
+        (row["order_id"], row["direction"])
         for row in connection.execute(
-            "SELECT DISTINCT order_id FROM article_lines WHERE product_id = ? ORDER BY order_id",
+            """
+            SELECT DISTINCT order_id, direction
+            FROM article_lines
+            WHERE product_id = ?
+            ORDER BY direction, order_id
+            """,
             (product["product_id"],),
         ).fetchall()
     ]
@@ -49,8 +54,8 @@ def test_product_detail_page_shows_labels_totals_and_article_lines(tmp_path) -> 
     assert "Article lines" in response.text
     assert "Purchases" in response.text
     assert "Sales" in response.text
-    for order_id in order_ids:
-        assert f'href="/shipments/{order_id}"' in response.text
+    for order_id, direction in orders:
+        assert f'href="/shipments/{order_id}?direction={direction}"' in response.text
 
 
 def test_product_detail_page_returns_404_for_unknown_product(tmp_path) -> None:

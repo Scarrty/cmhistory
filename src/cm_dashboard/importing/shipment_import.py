@@ -62,8 +62,7 @@ def _import_shipment_header(
             is_professional, vat_id_present, article_count, merchandise_value,
             shipment_costs, trustee_service_fee, commission, total_value, currency
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(order_id) DO UPDATE SET
-            direction = excluded.direction,
+        ON CONFLICT(direction, order_id) DO UPDATE SET
             username = excluded.username,
             counterparty_name = excluded.counterparty_name,
             street = excluded.street,
@@ -99,8 +98,8 @@ def _import_shipment_header(
         ),
     )
     shipment_id = connection.execute(
-        "SELECT shipment_id FROM shipments WHERE order_id = ?",
-        (order_id,),
+        "SELECT shipment_id FROM shipments WHERE direction = ? AND order_id = ?",
+        (metadata.direction.value, order_id),
     ).fetchone()["shipment_id"]
     event_datetime = normalize_datetime(values.get(_shipment_date_column(metadata.date_basis)))
     if event_datetime is None:

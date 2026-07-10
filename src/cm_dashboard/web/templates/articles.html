@@ -70,7 +70,7 @@
           {% for article in articles %}
           <tr>
             <td>{{ article.event_datetime }}</td>
-            <td><a href="/shipments/{{ article.order_id }}">{{ article.order_id }}</a></td>
+            <td><a href="/shipments/{{ article.order_id }}?direction={{ article.direction }}">{{ article.order_id }}</a></td>
             <td>{{ article.direction }}</td>
             <td>{{ article.article_name_snapshot }}</td>
             <td><a href="/products/{{ article.product_id }}">{{ article.product_id }}</a></td>

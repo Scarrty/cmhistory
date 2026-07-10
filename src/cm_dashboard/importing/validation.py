@@ -159,18 +159,20 @@ def _coverage_issues(metadata_items: list[ParsedFilename]) -> tuple[ValidationIs
 def _unmatched_article_issues(connection: sqlite3.Connection) -> tuple[ValidationIssue, ...]:
     rows = connection.execute(
         """
-        SELECT order_id, MIN(source_import_file_id) AS import_file_id
+        SELECT direction, order_id, MIN(source_import_file_id) AS import_file_id
         FROM article_lines
         WHERE shipment_id IS NULL
-        GROUP BY order_id
-        ORDER BY order_id
+        GROUP BY direction, order_id
+        ORDER BY direction, order_id
         """
     ).fetchall()
     return tuple(
         ValidationIssue(
             severity="warning",
             code="unmatched_article_order",
-            message=f"Article order {row['order_id']} has no matching shipment",
+            message=(
+                f"{row['direction']} article order {row['order_id']} has no matching shipment"
+            ),
             import_file_id=row["import_file_id"],
         )
         for row in rows

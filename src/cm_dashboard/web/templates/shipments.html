@@ -59,7 +59,7 @@
         <tbody>
           {% for shipment in shipments %}
           <tr>
-            <td><a href="/shipments/{{ shipment.order_id }}">{{ shipment.order_id }}</a></td>
+            <td><a href="/shipments/{{ shipment.order_id }}?direction={{ shipment.direction }}">{{ shipment.order_id }}</a></td>
             <td>{{ shipment.direction }}</td>
             <td>{{ shipment.username|mask_text }}</td>
             <td>{{ shipment.country or "" }}</td>

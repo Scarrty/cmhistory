@@ -1,5 +1,7 @@
 import sqlite3
 
+import pytest
+
 from cm_dashboard.db import MIGRATIONS_PATH, apply_migrations, connect_database, create_database
 
 REQUIRED_TABLES = {
@@ -82,3 +84,22 @@ def test_foreign_keys_are_enforced_after_migration(tmp_path) -> None:
         pass
     else:
         raise AssertionError("Expected foreign key constraint to reject missing import_file")
+
+
+def test_shipment_business_identity_includes_direction(tmp_path) -> None:
+    connection = create_database(tmp_path / "cardmarket.db")
+
+    connection.execute(
+        "INSERT INTO shipments (order_id, direction) VALUES ('shared-order', 'PURCHASED')"
+    )
+    connection.execute(
+        "INSERT INTO shipments (order_id, direction) VALUES ('shared-order', 'SOLD')"
+    )
+
+    assert connection.execute(
+        "SELECT COUNT(*) FROM shipments WHERE order_id = 'shared-order'"
+    ).fetchone()[0] == 2
+    with pytest.raises(sqlite3.IntegrityError):
+        connection.execute(
+            "INSERT INTO shipments (order_id, direction) VALUES ('shared-order', 'SOLD')"
+        )

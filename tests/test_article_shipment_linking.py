@@ -4,10 +4,12 @@ from cm_dashboard.importing.article_import import (
     link_article_lines_to_shipments,
 )
 from cm_dashboard.importing.filename import require_parsed_filename
+from cm_dashboard.importing.pipeline import import_source_folder
 from cm_dashboard.importing.raw_store import upsert_import_file
 from cm_dashboard.importing.readers import WorksheetData, read_spreadsheet
 from cm_dashboard.importing.shipment_import import import_shipment_sheet
 from tests.fixtures import require_fixture_path
+from tests.synthetic_sources import write_article_source, write_shipment_source
 
 
 def test_articles_imported_before_shipments_are_linked_after_shipment_import(tmp_path) -> None:
@@ -115,3 +117,47 @@ def test_unmatched_article_orders_are_reported_as_import_issues(tmp_path) -> Non
     issue = connection.execute("SELECT * FROM import_issues").fetchone()
     assert issue["code"] == "unmatched_article_order"
     assert "missing-order" in issue["message"]
+
+
+def test_same_order_id_in_both_directions_links_to_separate_shipments(tmp_path) -> None:
+    source = tmp_path / "source"
+    shared_order_id = "shared-order"
+    write_article_source(
+        source / "PURCHASED ARTICLES-BYPAYMENTDATE-2026-08-01_2026-08-31.CSV",
+        overrides={"Shipment nr.": shared_order_id},
+    )
+    write_shipment_source(
+        source / "PURCHASED SHIPMENTS-BYPAYMENTDATE-2026-08-01_2026-08-31.CSV",
+        order_id=shared_order_id,
+    )
+    write_article_source(
+        source / "SOLD ARTICLES-BYPAYMENTDATE-2026-08-01_2026-08-31.CSV",
+        overrides={"Shipment nr.": shared_order_id},
+    )
+    write_shipment_source(
+        source / "SOLD SHIPMENTS-BYPAYMENTDATE-2026-08-01_2026-08-31.CSV",
+        order_id=shared_order_id,
+    )
+    connection = create_database(tmp_path / "cardmarket.db")
+
+    results = import_source_folder(connection, source)
+
+    assert {result.status for result in results} == {"imported"}
+    assert connection.execute(
+        "SELECT COUNT(*) FROM shipments WHERE order_id = ?", (shared_order_id,)
+    ).fetchone()[0] == 2
+    links = connection.execute(
+        """
+        SELECT article_lines.direction AS article_direction,
+               shipments.direction AS shipment_direction
+        FROM article_lines
+        JOIN shipments USING (shipment_id)
+        WHERE article_lines.order_id = ?
+        ORDER BY article_lines.direction
+        """,
+        (shared_order_id,),
+    ).fetchall()
+    assert [(row["article_direction"], row["shipment_direction"]) for row in links] == [
+        ("PURCHASED", "PURCHASED"),
+        ("SOLD", "SOLD"),
+    ]

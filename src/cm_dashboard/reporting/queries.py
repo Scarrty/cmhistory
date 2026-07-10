@@ -8,6 +8,10 @@ from datetime import date
 from typing import Any
 
 
+class AmbiguousShipmentError(LookupError):
+    """Raised when an Order ID exists in both business directions."""
+
+
 @dataclass(frozen=True)
 class ReportingFilters:
     start_date: str | date | None = None
@@ -101,9 +105,12 @@ def fetch_shipments(
 def fetch_shipment_detail(
     connection: sqlite3.Connection,
     order_id: str,
+    direction: str | None = None,
 ) -> dict[str, Any] | None:
-    row = connection.execute(
-        """
+    direction_clause = "AND direction = ?" if direction else ""
+    params: tuple[str, ...] = (order_id, direction) if direction else (order_id,)
+    rows = connection.execute(
+        f"""
         SELECT
             shipment_id,
             order_id,
@@ -119,10 +126,17 @@ def fetch_shipment_detail(
             currency
         FROM shipments
         WHERE order_id = ?
+        {direction_clause}
+        ORDER BY direction
+        LIMIT 2
         """,
-        (order_id,),
-    ).fetchone()
-    return _row_dict(row) if row else None
+        params,
+    ).fetchall()
+    if len(rows) > 1:
+        raise AmbiguousShipmentError(
+            f"Order ID {order_id} exists in multiple directions; direction is required"
+        )
+    return _row_dict(rows[0]) if rows else None
 
 
 def fetch_shipment_events(
@@ -169,7 +183,8 @@ def period_totals(
         f"""
         SELECT
             COUNT(*) AS article_line_count,
-            COUNT(DISTINCT article_lines.order_id) AS shipment_count,
+            COUNT(DISTINCT article_lines.direction || CHAR(31) || article_lines.order_id)
+                AS shipment_count,
             COALESCE(SUM(CASE WHEN article_lines.direction = 'PURCHASED'
                 THEN CAST(article_lines.total AS REAL) ELSE 0 END), 0) AS purchase_total,
             COALESCE(SUM(CASE WHEN article_lines.direction = 'SOLD'
@@ -196,7 +211,8 @@ def monthly_totals(
             SUBSTR(article_lines.event_datetime, 1, 7) AS month,
             article_lines.direction,
             COUNT(*) AS article_line_count,
-            COUNT(DISTINCT article_lines.order_id) AS shipment_count,
+            COUNT(DISTINCT article_lines.direction || CHAR(31) || article_lines.order_id)
+                AS shipment_count,
             COALESCE(SUM(CAST(article_lines.total AS REAL)), 0) AS total
         FROM article_lines
         LEFT JOIN shipments ON shipments.shipment_id = article_lines.shipment_id

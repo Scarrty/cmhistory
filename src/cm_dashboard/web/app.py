@@ -32,6 +32,7 @@ from fastapi.templating import Jinja2Templates
 from cm_dashboard.config import load_settings
 from cm_dashboard.db import create_database
 from cm_dashboard.reporting.queries import (
+    AmbiguousShipmentError,
     ReportingFilters,
     fetch_article_lines,
     fetch_shipment_articles,
@@ -193,9 +194,12 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
         )
 
     @app.get("/shipments/{order_id}", response_class=HTMLResponse)
-    def shipment_detail(request: Request, order_id: str):
+    def shipment_detail(request: Request, order_id: str, direction: str | None = None):
         connection = create_database(app.state.database_path)
-        shipment = fetch_shipment_detail(connection, order_id)
+        try:
+            shipment = fetch_shipment_detail(connection, order_id, direction=direction)
+        except AmbiguousShipmentError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         if shipment is None:
             raise HTTPException(status_code=404, detail="Shipment not found")
         events = fetch_shipment_events(connection, shipment["shipment_id"])

@@ -66,23 +66,25 @@ def link_article_lines_to_shipments(
         SET shipment_id = (
             SELECT shipments.shipment_id
             FROM shipments
-            WHERE shipments.order_id = article_lines.order_id
+                WHERE shipments.order_id = article_lines.order_id
+                  AND shipments.direction = article_lines.direction
         )
         WHERE shipment_id IS NULL
           AND EXISTS (
             SELECT 1
             FROM shipments
-            WHERE shipments.order_id = article_lines.order_id
+                WHERE shipments.order_id = article_lines.order_id
+                  AND shipments.direction = article_lines.direction
           )
         """
     )
     unmatched_rows = connection.execute(
         """
-        SELECT order_id, MIN(source_import_file_id) AS import_file_id
+        SELECT direction, order_id, MIN(source_import_file_id) AS import_file_id
         FROM article_lines
         WHERE shipment_id IS NULL
-        GROUP BY order_id
-        ORDER BY order_id
+        GROUP BY direction, order_id
+        ORDER BY direction, order_id
         """
     ).fetchall()
     if record_issues:
@@ -95,7 +97,7 @@ def link_article_lines_to_shipments(
             (
                 (
                     row["import_file_id"],
-                    f"Article order {row['order_id']} has no matching shipment",
+                    f"{row['direction']} article order {row['order_id']} has no matching shipment",
                 )
                 for row in unmatched_rows
             ),
@@ -137,7 +139,7 @@ def _import_article_row(
 
     expansion_id = _get_or_create_named_row(connection, "expansions", expansion_name)
     category_id = _get_or_create_named_row(connection, "categories", category_name)
-    shipment_id = _shipment_id_for_order(connection, order_id)
+    shipment_id = _shipment_id_for_order(connection, order_id, metadata.direction.value)
 
     connection.execute(
         """
@@ -188,10 +190,12 @@ def _get_or_create_named_row(
     return int(row[0])
 
 
-def _shipment_id_for_order(connection: sqlite3.Connection, order_id: str) -> int | None:
+def _shipment_id_for_order(
+    connection: sqlite3.Connection, order_id: str, direction: str
+) -> int | None:
     row = connection.execute(
-        "SELECT shipment_id FROM shipments WHERE order_id = ?",
-        (order_id,),
+        "SELECT shipment_id FROM shipments WHERE direction = ? AND order_id = ?",
+        (direction, order_id),
     ).fetchone()
     return int(row["shipment_id"]) if row else None
 
