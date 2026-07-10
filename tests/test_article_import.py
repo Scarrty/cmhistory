@@ -1,6 +1,12 @@
 from cm_dashboard.db import create_database
 from cm_dashboard.importing.article_import import import_article_sheet
 from cm_dashboard.importing.filename import require_parsed_filename
+from cm_dashboard.importing.normalize import (
+    normalize_currency,
+    normalize_decimal,
+    normalize_identifier,
+    normalize_int,
+)
 from cm_dashboard.importing.raw_store import upsert_import_file
 from cm_dashboard.importing.readers import WorksheetData, read_spreadsheet
 from tests.fixtures import require_fixture_path
@@ -32,11 +38,12 @@ def test_import_article_sheet_normalizes_products_labels_and_lines(tmp_path) -> 
     row = connection.execute(
         "SELECT * FROM article_lines ORDER BY article_line_id LIMIT 1"
     ).fetchone()
-    assert row["order_id"] == "38641681"
-    assert row["product_id"] == "285547"
-    assert row["quantity"] == 2
-    assert row["article_value"] == "19.8"
-    assert row["currency"] == "EUR"
+    private_source_row = dict(zip(sheet.headers, sheet.rows[0], strict=True))
+    assert row["order_id"] == normalize_identifier(private_source_row["Shipment nr."])
+    assert row["product_id"] == normalize_identifier(private_source_row["Product ID"])
+    assert row["quantity"] == normalize_int(private_source_row["Amount"])
+    assert row["article_value"] == str(normalize_decimal(private_source_row["Article Value"]))
+    assert row["currency"] == normalize_currency(private_source_row["Currency"])
 
 
 def test_import_article_sheet_keeps_multiple_observed_labels_for_one_product(tmp_path) -> None:

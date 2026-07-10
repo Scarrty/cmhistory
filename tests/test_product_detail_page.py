@@ -13,20 +13,44 @@ def test_product_detail_page_shows_labels_totals_and_article_lines(tmp_path) -> 
     for key in ("charizard_2016_payment_articles", "charizard_2020_payment_articles"):
         path = require_fixture_path(key)
         import_source_file(connection, SourceFile(path=path, metadata=_metadata(path)))
+    product = connection.execute(
+        """
+        SELECT product_id, COUNT(*) AS label_count
+        FROM product_labels
+        GROUP BY product_id
+        HAVING COUNT(*) > 1
+        ORDER BY product_id
+        LIMIT 1
+        """
+    ).fetchone()
+    labels = [
+        row["label"]
+        for row in connection.execute(
+            "SELECT label FROM product_labels WHERE product_id = ? ORDER BY label",
+            (product["product_id"],),
+        ).fetchall()
+    ]
+    order_ids = [
+        row["order_id"]
+        for row in connection.execute(
+            "SELECT DISTINCT order_id FROM article_lines WHERE product_id = ? ORDER BY order_id",
+            (product["product_id"],),
+        ).fetchall()
+    ]
     client = TestClient(create_app(database_path=database_path))
 
-    response = client.get("/products/273699")
+    response = client.get(f"/products/{product['product_id']}")
 
     assert response.status_code == 200
-    assert "Product 273699" in response.text
-    assert "2 observed labels" in response.text
-    assert "Charizard" in response.text
-    assert "Glurak" in response.text
+    assert f"Product {product['product_id']}" in response.text
+    assert f"{product['label_count']} observed labels" in response.text
+    for label in labels:
+        assert label in response.text
     assert "Article lines" in response.text
     assert "Purchases" in response.text
     assert "Sales" in response.text
-    assert 'href="/shipments/7102735"' in response.text
-    assert 'href="/shipments/22172074"' in response.text
+    for order_id in order_ids:
+        assert f'href="/shipments/{order_id}"' in response.text
 
 
 def test_product_detail_page_returns_404_for_unknown_product(tmp_path) -> None:

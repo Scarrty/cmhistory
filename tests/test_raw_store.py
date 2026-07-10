@@ -2,6 +2,7 @@ import json
 
 from cm_dashboard.db import create_database
 from cm_dashboard.importing.filename import require_parsed_filename
+from cm_dashboard.importing.normalize import normalize_identifier
 from cm_dashboard.importing.raw_store import (
     file_sha256,
     store_raw_article_rows,
@@ -9,6 +10,7 @@ from cm_dashboard.importing.raw_store import (
     upsert_import_file,
 )
 from cm_dashboard.importing.readers import read_spreadsheet
+from cm_dashboard.importing.shipment_grouping import resolve_shipment_groups
 from tests.fixtures import require_fixture_path
 
 
@@ -68,9 +70,10 @@ def test_store_raw_article_rows_persists_source_traceability(tmp_path) -> None:
         (import_file_id,),
     ).fetchone()
     raw_values = json.loads(row["raw_values_json"])
+    private_source_row = dict(zip(sheet.headers, sheet.rows[0], strict=True))
     assert row["source_row_number"] == 2
-    assert row["order_id"] == "38641681"
-    assert raw_values["Shipment nr."] == 38641681.0
+    assert row["order_id"] == normalize_identifier(private_source_row["Shipment nr."])
+    assert raw_values["Shipment nr."] == private_source_row["Shipment nr."]
     assert row["business_key"]
 
 
@@ -90,17 +93,22 @@ def test_store_raw_shipment_rows_persists_resolved_order_ids(tmp_path) -> None:
     stored_count = store_raw_shipment_rows(connection, import_file_id=import_file_id, sheet=sheet)
 
     assert stored_count == sheet.row_count
+    private_continuation = next(
+        row
+        for row in resolve_shipment_groups(sheet)
+        if not row.is_header_row and row.resolved_order_id is not None
+    )
     row = connection.execute(
         """
         SELECT * FROM raw_shipment_rows
-        WHERE import_file_id = ? AND source_row_number = 5
+        WHERE import_file_id = ? AND source_row_number = ?
         """,
-        (import_file_id,),
+        (import_file_id, private_continuation.source_row_number),
     ).fetchone()
     inherited_values = json.loads(row["inherited_values_json"])
     raw_values = json.loads(row["raw_values_json"])
     assert row["order_id"] is None
-    assert row["resolved_order_id"] == "35389710"
+    assert row["resolved_order_id"] == private_continuation.resolved_order_id
     assert row["is_header_row"] == 0
     assert raw_values["OrderID"] == ""
-    assert inherited_values["Username"] == "Shadwell"
+    assert inherited_values["Username"] == private_continuation.inherited_values["Username"]

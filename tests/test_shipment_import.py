@@ -1,5 +1,11 @@
 from cm_dashboard.db import create_database
 from cm_dashboard.importing.filename import require_parsed_filename
+from cm_dashboard.importing.normalize import (
+    normalize_bool,
+    normalize_identifier,
+    normalize_int,
+    normalize_text,
+)
 from cm_dashboard.importing.raw_store import upsert_import_file
 from cm_dashboard.importing.readers import WorksheetData, read_spreadsheet
 from cm_dashboard.importing.shipment_grouping import resolve_shipment_groups
@@ -31,15 +37,21 @@ def test_import_shipment_sheet_normalizes_shipments_events_and_fees(tmp_path) ->
     assert imported_count == expected_header_count
     shipment_count = connection.execute("SELECT COUNT(*) FROM shipments").fetchone()[0]
     assert shipment_count == expected_header_count
+    private_header = next(row for row in resolve_shipment_groups(sheet) if row.is_header_row)
+    private_order_id = normalize_identifier(private_header.values["OrderID"])
     shipment = connection.execute(
-        "SELECT * FROM shipments WHERE order_id = '35389710'"
+        "SELECT * FROM shipments WHERE order_id = ?", (private_order_id,)
     ).fetchone()
-    assert shipment["username"] == "Shadwell"
-    assert shipment["country"] == "Germany"
-    assert shipment["is_professional"] == 1
-    assert shipment["vat_id_present"] == 1
-    assert shipment["article_count"] == 24
-    assert shipment["trustee_service_fee"] == "0.00"
+    assert shipment["username"] == normalize_text(private_header.values["Username"])
+    assert shipment["country"] == normalize_text(private_header.values["Country"])
+    assert shipment["is_professional"] == int(
+        bool(normalize_bool(private_header.values["Is Professional"]))
+    )
+    assert shipment["vat_id_present"] == int(
+        normalize_text(private_header.values["VAT Number"]) is not None
+    )
+    assert shipment["article_count"] == normalize_int(private_header.values["Article Count"])
+    assert shipment["trustee_service_fee"] is not None
     assert shipment["commission"] is None
     event = connection.execute(
         """

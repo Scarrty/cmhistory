@@ -25,9 +25,11 @@ def test_read_csv_fixture_with_same_interface() -> None:
 
 def test_read_xls_preserves_unicode_text() -> None:
     sheet = read_spreadsheet(require_fixture_path("unicode_shipment"))
-    values = {value for row in sheet.rows for value in row}
+    street_index = sheet.headers.index("Street")
+    private_street_values = [str(row[street_index]) for row in sheet.rows if row[street_index]]
 
-    assert "Haus Füchteln 10" in values
+    assert any(any(ord(character) > 127 for character in value) for value in private_street_values)
+    assert all("\ufffd" not in value for value in private_street_values)
 
 
 def test_unsupported_extension_is_explicit() -> None:

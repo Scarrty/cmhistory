@@ -22,8 +22,8 @@ def test_normalize_text_trims_and_converts_empty_to_none() -> None:
 
 
 def test_normalize_identifier_removes_xls_float_suffix() -> None:
-    assert normalize_identifier(38641681.0) == "38641681"
-    assert normalize_identifier(" 1251705672 ") == "1251705672"
+    assert normalize_identifier(12345678.0) == "12345678"
+    assert normalize_identifier(" 1234567890 ") == "1234567890"
 
 
 def test_normalize_int_accepts_numeric_strings_and_xls_floats() -> None:

@@ -11,27 +11,31 @@ def test_shipment_grouping_forward_fills_continuation_rows_from_previous_header(
     sheet = read_spreadsheet(require_fixture_path("unicode_shipment"))
     rows = resolve_shipment_groups(sheet)
 
-    header_row = rows[2]
-    continuation_row = rows[3]
+    header_index = next(
+        index
+        for index, row in enumerate(rows[:-1])
+        if row.is_header_row and not rows[index + 1].is_header_row
+    )
+    header_row = rows[header_index]
+    continuation_row = rows[header_index + 1]
 
     assert header_row.is_header_row
-    assert header_row.order_id == "35389710"
+    assert header_row.order_id is not None
     assert continuation_row.is_header_row is False
     assert continuation_row.order_id is None
-    assert continuation_row.resolved_order_id == "35389710"
+    assert continuation_row.resolved_order_id == header_row.order_id
     assert continuation_row.values["OrderID"] == ""
-    assert continuation_row.inherited_values["OrderID"] == 35389710.0
-    assert continuation_row.inherited_values["Username"] == "Shadwell"
-    assert continuation_row.inherited_values["Product ID"] == 284940.0
-    assert "Swamp" in continuation_row.inherited_values["Localized Product Name"]
+    assert continuation_row.inherited_values["OrderID"] == header_row.values["OrderID"]
+    assert continuation_row.inherited_values["Username"] == header_row.values["Username"]
+    assert continuation_row.inherited_values["Product ID"] == continuation_row.values["Product ID"]
+    assert continuation_row.inherited_values["Localized Product Name"]
 
 
 def test_shipment_grouping_preserves_source_row_numbers() -> None:
     sheet = read_spreadsheet(require_fixture_path("unicode_shipment"))
     rows = resolve_shipment_groups(sheet)
 
-    assert rows[0].source_row_number == 2
-    assert rows[3].source_row_number == 5
+    assert [row.source_row_number for row in rows] == list(range(2, len(rows) + 2))
 
 
 def test_shipment_group_counts_match_review_evidence() -> None:

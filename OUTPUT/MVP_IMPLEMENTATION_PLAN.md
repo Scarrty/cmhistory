@@ -57,7 +57,7 @@ Key source constraints from the feasibility review:
 - Purchase-date and payment-date exports are separate views of the same business activity and have incomplete monthly coverage in several periods.
 - 2026 sold article CSV/XLS pairs overlap exactly after normalization and must not be double-counted.
 - At least one XLS needs tolerant parsing: `PURCHASED ARTICLES-BYPAYMENTDATE-2016-06-01_2016-06-30.XLS`.
-- Unicode fidelity must be verified because one parser path showed `Haus F�chteln 10` where the source contains `Haus Füchteln 10`.
+- Unicode fidelity must be verified because one parser path replaced non-ASCII characters in a private address value.
 - Product IDs are stable, but localized product names are not one-to-one. The data contains 4,065 product IDs and 63 product IDs with multiple localized names.
 
 ## Assumptions
@@ -204,7 +204,7 @@ Optional only if needed during implementation:
 | Source scanning | A command scans the folder and reports 447 known source files plus any unknown files without crashing. |
 | Filename parsing | All current XLS/CSV filenames are classified into direction, entity, date basis, and period; malformed filenames are reported as issues. |
 | XLS parsing | The importer reads the known tolerant-parser fixture `PURCHASED ARTICLES-BYPAYMENTDATE-2016-06-01_2016-06-30.XLS`. |
-| Unicode fidelity | The string `Haus Füchteln 10` is preserved from `PURCHASED SHIPMENTS-BYPAYMENTDATE-2016-06-01_2016-06-30.XLS`. |
+| Unicode fidelity | Non-ASCII address text is preserved without replacement characters in `PURCHASED SHIPMENTS-BYPAYMENTDATE-2016-06-01_2016-06-30.XLS`. |
 | CSV parsing | 2026 sold article CSV files import with the same row shape as their XLS counterparts. |
 | Raw staging | Every imported source row is stored with file ID, source row number, raw values, and parser metadata. |
 | Shipment grouping | Continuation rows in shipment exports receive the correct `resolved_order_id`; known continuation counts match the feasibility review. |
@@ -452,7 +452,7 @@ git commit -m "Add spreadsheet reader abstraction"
 
 **Steps:**
 
-1. Add a test expecting `Haus Füchteln 10` from `PURCHASED SHIPMENTS-BYPAYMENTDATE-2016-06-01_2016-06-30.XLS`.
+1. Add a test proving that non-ASCII address text is preserved without publishing the private value.
 2. If the current XLS library fails, adjust the reader or parser dependency until the test passes.
 3. Run:
 

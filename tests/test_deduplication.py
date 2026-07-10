@@ -26,7 +26,7 @@ def test_article_business_key_normalizes_csv_and_xls_row_shapes() -> None:
         "SOLD ARTICLES-BYPURCHASEDATE-2026-01-01_2026-01-31.XLS"
     )
     csv_row = {
-        "Shipment nr.": "1251705672",
+        "Shipment nr.": "1000001",
         "Date of purchase": "2026-01-17 07:18:03",
         "Article": "Wally's Compassion",
         "Product ID": "851247",
@@ -40,7 +40,7 @@ def test_article_business_key_normalizes_csv_and_xls_row_shapes() -> None:
         "Comments": " A026 ",
     }
     xls_row = {
-        "Shipment nr.": 1251705672.0,
+        "Shipment nr.": 1000001.0,
         "Date of purchase": "17/01/2026 7:18",
         "Article": "Wally's Compassion",
         "Product ID": 851247.0,

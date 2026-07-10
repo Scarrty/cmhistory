@@ -23,52 +23,82 @@ def imported_connection(tmp_path):
 
 
 def test_fetch_article_lines_filters_by_date_direction_basis_and_order(imported_connection) -> None:
+    sample = imported_connection.execute(
+        """
+        SELECT order_id, direction, date_basis, SUBSTR(event_datetime, 1, 10) AS event_date
+        FROM article_lines
+        ORDER BY article_line_id
+        LIMIT 1
+        """
+    ).fetchone()
     rows = fetch_article_lines(
         imported_connection,
         ReportingFilters(
-            start_date="2016-06-01",
-            end_date="2016-06-30",
-            direction="PURCHASED",
-            date_basis="PAYMENTDATE",
-            order_id="38641681",
+            start_date=sample["event_date"],
+            end_date=sample["event_date"],
+            direction=sample["direction"],
+            date_basis=sample["date_basis"],
+            order_id=sample["order_id"],
         ),
     )
 
     assert rows
-    assert {row["order_id"] for row in rows} == {"38641681"}
-    assert {row["direction"] for row in rows} == {"PURCHASED"}
+    assert {row["order_id"] for row in rows} == {sample["order_id"]}
+    assert {row["direction"] for row in rows} == {sample["direction"]}
 
 
 def test_fetch_article_lines_filters_by_product_expansion_and_category(imported_connection) -> None:
+    sample = imported_connection.execute(
+        """
+        SELECT product_id, article_name_snapshot, expansion_name_snapshot,
+               category_name_snapshot
+        FROM article_lines
+        WHERE expansion_name_snapshot IS NOT NULL AND category_name_snapshot IS NOT NULL
+        ORDER BY article_line_id
+        LIMIT 1
+        """
+    ).fetchone()
     rows = fetch_article_lines(
         imported_connection,
         ReportingFilters(
-            product_id="285547",
-            product_text="Battle for Zendikar",
-            expansion="Battle for Zendikar",
-            category="Magic Lot",
+            product_id=sample["product_id"],
+            product_text=sample["article_name_snapshot"],
+            expansion=sample["expansion_name_snapshot"],
+            category=sample["category_name_snapshot"],
         ),
     )
 
-    assert len(rows) == 1
-    assert rows[0]["product_id"] == "285547"
+    assert rows
+    assert {row["product_id"] for row in rows} == {sample["product_id"]}
 
 
 def test_fetch_shipments_filters_by_username_country_and_date(imported_connection) -> None:
+    sample = imported_connection.execute(
+        """
+        SELECT shipments.order_id, shipments.direction, shipments.username, shipments.country,
+               shipment_events.event_type,
+               SUBSTR(shipment_events.event_datetime, 1, 10) AS event_date
+        FROM shipments
+        JOIN shipment_events USING (shipment_id)
+        WHERE shipments.username IS NOT NULL AND shipments.country IS NOT NULL
+        ORDER BY shipments.shipment_id
+        LIMIT 1
+        """
+    ).fetchone()
     rows = fetch_shipments(
         imported_connection,
         ReportingFilters(
-            start_date="2016-06-01",
-            end_date="2016-06-30",
-            direction="PURCHASED",
-            date_basis="PAYMENTDATE",
-            username="Shadwell",
-            country="Germany",
+            start_date=sample["event_date"],
+            end_date=sample["event_date"],
+            direction=sample["direction"],
+            date_basis=sample["event_type"],
+            username=sample["username"],
+            country=sample["country"],
         ),
     )
 
     assert len(rows) == 1
-    assert rows[0]["order_id"] == "35389710"
+    assert rows[0]["order_id"] == sample["order_id"]
 
 
 def test_period_totals_returns_counts_and_purchase_total(imported_connection) -> None:

@@ -13,7 +13,7 @@ The product is feasible from the available Cardmarket export data, but the PRD i
 | Data model | `Datenmodell.md` | Full document read: source counts, entity model, fields, import rules, staging tables, SQL sketch. | High |
 | XLS source exports | `*.XLS` in `D:\OneDrive\Dokumente\CM History` | All 442 XLS files opened directly with `xlrd.open_workbook(..., ignore_workbook_corruption=True)`; sheet count, sheet name, headers, row count, key columns, ID/null patterns, row grouping, period coverage, and sample anomalies checked. | High for structure and numeric/date evidence; Medium for Unicode fidelity because xlrd produced replacement characters in some German address strings. |
 | CSV source exports | `*.CSV` in `D:\OneDrive\Dokumente\CM History` | All 5 CSV files parsed; headers, rows, normalized overlap with same-month XLS article files checked. | High |
-| Excel COM spot check | `PURCHASED SHIPMENTS-BYPAYMENTDATE-2016-06-01_2016-06-30.XLS` | Opened with Excel to verify German address text where xlrd returned replacement characters; Excel showed `Haus Füchteln 10`. | High for the sampled encoding issue |
+| Excel COM spot check | `PURCHASED SHIPMENTS-BYPAYMENTDATE-2016-06-01_2016-06-30.XLS` | Opened with Excel to verify a private German address value where xlrd returned replacement characters; the original non-ASCII characters were preserved by Excel. | High for the sampled encoding issue |
 
 ## XLS / Source Data Inventory
 
@@ -612,7 +612,7 @@ No hard source-data blocker was found. All 447 current source files were read su
 
 #### H1. Shipment exports are grouped rows; PRD does not specify forward-fill semantics
 
-Evidence: Direct XLS profile shows 10,596 shipment raw rows, of which 8,432 have blank `OrderID` and `Username`. Example source: `PURCHASED SHIPMENTS-BYPAYMENTDATE-2016-06-01_2016-06-30.XLS`, rows 4-7 show one header row for OrderID `35389710`, followed by continuation rows with blank order/party/date/cost fields but filled `Description`, `Product ID`, and `Localized Product Name`.
+Evidence: Direct XLS profile shows 10,596 shipment raw rows, of which 8,432 have blank `OrderID` and `Username`. Example source: `PURCHASED SHIPMENTS-BYPAYMENTDATE-2016-06-01_2016-06-30.XLS`, rows 4-7 show one header row followed by continuation rows with blank order/party/date/cost fields but filled `Description`, `Product ID`, and `Localized Product Name`. The private OrderID is intentionally redacted.
 
 Why it matters: A naive importer will either discard continuation rows, create orphan raw rows, or fail validation. This affects matching, raw auditability, product-level shipment descriptions, and plausibility checks.
 
@@ -632,7 +632,7 @@ Files/sources involved: PRD sections 5, 9.2-9.7, 17, 19.
 
 #### H3. Parser strategy is underspecified for old/corrupt-looking XLS and Unicode fidelity
 
-Evidence: `xlrd.open_workbook()` without corruption tolerance fails on `PURCHASED ARTICLES-BYPAYMENTDATE-2016-06-01_2016-06-30.XLS` with `CompDocError: Workbook corruption: seen[2] == 4`; with `ignore_workbook_corruption=True` it reads the sheet. xlrd returned `Haus F�chteln 10` for a sample address, while Excel COM showed `Haus Füchteln 10`.
+Evidence: `xlrd.open_workbook()` without corruption tolerance fails on `PURCHASED ARTICLES-BYPAYMENTDATE-2016-06-01_2016-06-30.XLS` with `CompDocError: Workbook corruption: seen[2] == 4`; with `ignore_workbook_corruption=True` it reads the sheet. In a sampled private address, xlrd returned replacement characters while Excel COM preserved the original non-ASCII text.
 
 Why it matters: PRD 13 says the parser must not require Excel Desktop, which is reasonable, but the implementation must still read this old XLS corpus correctly. A technically compatible library can still corrupt names/addresses.
 
@@ -812,7 +812,7 @@ Avoidable complexity:
 |---|---|---|
 | Filename parsing | Parse all current file names and assert 447 matches with expected direction/level/basis/period. | All source files. |
 | XLS parser tolerance | Open a file that fails default xlrd and assert successful read with selected parser. | `PURCHASED ARTICLES-BYPAYMENTDATE-2016-06-01_2016-06-30.XLS`. |
-| Unicode fidelity | Assert address text with umlaut is preserved. | `PURCHASED SHIPMENTS-BYPAYMENTDATE-2016-06-01_2016-06-30.XLS`, row with `Haus Füchteln 10`. |
+| Unicode fidelity | Assert non-ASCII address text is preserved without exposing the private value. | `PURCHASED SHIPMENTS-BYPAYMENTDATE-2016-06-01_2016-06-30.XLS`. |
 | Shipment grouped-row parsing | Assert continuation rows inherit previous `OrderID` and remain traceable to source row. | `PURCHASED SHIPMENTS-BYPAYMENTDATE-2016-06-01_2016-06-30.XLS`, rows 4-7. |
 | Article-to-shipment linkage | Assert article order IDs have matching shipment headers for same direction/basis after grouped parsing. | All Article and Shipment files; expected article orders without shipment = 0 per current basis profile. |
 | Purchase/payment event merge | Import both basis views and assert one shipment with two event types where both exist. | Any order appearing in both PURCHASEDATE and PAYMENTDATE views. |
@@ -820,7 +820,7 @@ Avoidable complexity:
 | Decimal normalization | Parse `14.5` and `14,50` into Decimal values. | Article and Shipment value columns from XLS. |
 | CSV/XLS duplicate handling | Import matching CSV and XLS month and assert no duplicate normalized lines. | SOLD ARTICLES BYPURCHASEDATE 2026-01 through 2026-05 CSV/XLS pairs. |
 | Product ID dimension | Assert 0 blank Product IDs and handle multiple localized names per Product ID. | Article XLS files; Product IDs `273699`, `273710`, etc. |
-| Shipment detail | Select multi-line order and verify header, costs, continuation descriptions, and article rows. | OrderID `35389710` from `PURCHASED SHIPMENTS-BYPAYMENTDATE-2016-06-01_2016-06-30.XLS`. |
+| Shipment detail | Select multi-line order and verify header, costs, continuation descriptions, and article rows. | A dynamically selected private OrderID from `PURCHASED SHIPMENTS-BYPAYMENTDATE-2016-06-01_2016-06-30.XLS`. |
 | Report basis | Generate same period by purchase date and payment date and show basis label/coverage. | Periods with asymmetric source coverage. |
 | Privacy masking | Verify address/name/VAT fields can be hidden in UI/export. | Shipment XLS files with personal data. |
 | Re-import idempotency | Import same file twice and assert normalized row counts unchanged, import issue recorded if duplicate. | Any XLS and one CSV. |
