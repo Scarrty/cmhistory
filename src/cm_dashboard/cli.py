@@ -9,7 +9,11 @@ from pathlib import Path
 
 from cm_dashboard.config import load_settings
 from cm_dashboard.db import connect_database, create_database
-from cm_dashboard.importing.pipeline import import_source_folder
+from cm_dashboard.importing.pipeline import (
+    DatabaseRebuildRequiredError,
+    import_source_folder,
+    rebuild_database,
+)
 from cm_dashboard.importing.source_scan import scan_source_files
 from cm_dashboard.importing.validation import validate_database
 
@@ -24,6 +28,10 @@ def build_parser() -> argparse.ArgumentParser:
     import_parser = subparsers.add_parser("import")
     import_parser.add_argument("--source", type=Path, default=None)
     import_parser.add_argument("--db", type=Path, default=None)
+
+    rebuild_parser = subparsers.add_parser("rebuild")
+    rebuild_parser.add_argument("--source", type=Path, default=None)
+    rebuild_parser.add_argument("--db", type=Path, default=None)
 
     validate_parser = subparsers.add_parser("validate")
     validate_parser.add_argument("--db", type=Path, default=None)
@@ -51,15 +59,37 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "import":
         settings = load_settings(source_path=args.source, database_path=args.db)
         connection = create_database(settings.database_path)
-        results = import_source_folder(connection, settings.source_path)
-        print(f"imported files: {len(results)}")
+        try:
+            results = import_source_folder(connection, settings.source_path)
+        except DatabaseRebuildRequiredError as exc:
+            print(f"error: {exc}")
+            return 2
+        finally:
+            connection.close()
+        counts = Counter(result.status for result in results)
+        print(f"imported files: {counts['imported']}")
+        print(f"skipped files: {counts['skipped']}")
+        print(f"failed files: {counts['failed']}")
+        print(f"database: {settings.database_path}")
+        for result in results:
+            if result.status == "failed":
+                print(f"error: {result.file_name}: {result.error_message}")
+        return 1 if counts["failed"] else 0
+
+    if args.command == "rebuild":
+        settings = load_settings(source_path=args.source, database_path=args.db)
+        results = rebuild_database(settings.source_path, settings.database_path)
+        print(f"rebuilt files: {len(results)}")
         print(f"database: {settings.database_path}")
         return 0
 
     if args.command == "validate":
         settings = load_settings(database_path=args.db)
         connection = connect_database(settings.database_path)
-        issues = validate_database(connection)
+        try:
+            issues = validate_database(connection)
+        finally:
+            connection.close()
         print(f"issues: {len(issues)}")
         for issue in issues:
             print(f"{issue.severity}: {issue.code}: {issue.message}")

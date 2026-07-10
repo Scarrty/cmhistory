@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -37,20 +38,35 @@ class ArticleBusinessKey:
     total: Decimal
     currency: str
     comments: str
+    occurrence_index: int = 1
 
 
 def article_business_keys(
     sheet: WorksheetData, metadata: ParsedFilename
 ) -> tuple[ArticleBusinessKey, ...]:
+    occurrences: Counter[ArticleBusinessKey] = Counter()
+    keys: list[ArticleBusinessKey] = []
+    for row in sheet.rows:
+        base_key = article_business_key(dict(zip(sheet.headers, row, strict=True)), metadata)
+        occurrences[base_key] += 1
+        keys.append(replace(base_key, occurrence_index=occurrences[base_key]))
+    return tuple(keys)
+
+
+def article_business_key_strings(
+    sheet: WorksheetData, metadata: ParsedFilename
+) -> tuple[str, ...]:
     return tuple(
-        article_business_key(dict(zip(sheet.headers, row, strict=True)), metadata)
-        for row in sheet.rows
+        serialize_article_business_key(key)
+        for key in article_business_keys(sheet, metadata)
     )
 
 
 def article_business_key(
     row: Mapping[str, Any],
     metadata: ParsedFilename,
+    *,
+    occurrence_index: int = 1,
 ) -> ArticleBusinessKey:
     date_column = _article_date_column(metadata.date_basis)
     event_datetime = _required_datetime(row.get(date_column), date_column)
@@ -69,11 +85,32 @@ def article_business_key(
         total=_required_decimal(row.get("Total"), "Total"),
         currency=_required_currency(row.get("Currency"), "Currency"),
         comments=_optional_text(row.get("Comments")),
+        occurrence_index=occurrence_index,
     )
 
 
-def article_business_key_string(row: Mapping[str, Any], metadata: ParsedFilename) -> str:
-    return json.dumps(asdict(article_business_key(row, metadata)), sort_keys=True, default=str)
+def article_business_key_string(
+    row: Mapping[str, Any],
+    metadata: ParsedFilename,
+    *,
+    occurrence_index: int = 1,
+) -> str:
+    key = article_business_key(row, metadata, occurrence_index=occurrence_index)
+    return serialize_article_business_key(key)
+
+
+def serialize_article_business_key(key: ArticleBusinessKey) -> str:
+    payload = asdict(key)
+    payload["event_minute"] = key.event_minute.isoformat(sep=" ", timespec="minutes")
+    payload["article_value"] = _canonical_decimal(key.article_value)
+    payload["total"] = _canonical_decimal(key.total)
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _canonical_decimal(value: Decimal) -> str:
+    if value == 0:
+        return "0"
+    return format(value.normalize(), "f")
 
 
 def _article_date_column(date_basis: DateBasis) -> str:

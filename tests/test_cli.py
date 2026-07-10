@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from cm_dashboard import cli
+from cm_dashboard.importing.pipeline import ImportResult
 from cm_dashboard.importing.validation import ValidationIssue
 
 
@@ -21,14 +22,25 @@ def test_cli_inspect_source_reports_source_counts(tmp_path: Path, capsys) -> Non
 def test_cli_import_wires_arguments_to_pipeline(tmp_path: Path, monkeypatch, capsys) -> None:
     calls = {}
 
+    class FakeConnection:
+        closed = False
+
+        def close(self):
+            self.closed = True
+
+    fake_connection = FakeConnection()
+
     def fake_create_database(database_path):
         calls["db"] = database_path
-        return "connection"
+        return fake_connection
 
     def fake_import_source_folder(connection, source_path):
         calls["connection"] = connection
         calls["source"] = source_path
-        return ("one", "two")
+        return (
+            ImportResult(1, "one.csv", "ARTICLES", 1, 1),
+            ImportResult(2, "two.csv", "ARTICLES", 1, 0, status="skipped"),
+        )
 
     monkeypatch.setattr(cli, "create_database", fake_create_database)
     monkeypatch.setattr(cli, "import_source_folder", fake_import_source_folder)
@@ -41,16 +53,26 @@ def test_cli_import_wires_arguments_to_pipeline(tmp_path: Path, monkeypatch, cap
     assert exit_code == 0
     assert calls["db"] == (tmp_path / "db.sqlite").resolve(strict=False)
     assert calls["source"] == (tmp_path / "source").resolve(strict=False)
-    assert calls["connection"] == "connection"
-    assert "imported files: 2" in output
+    assert calls["connection"] is fake_connection
+    assert fake_connection.closed
+    assert "imported files: 1" in output
+    assert "skipped files: 1" in output
 
 
 def test_cli_validate_wires_database_to_validation(tmp_path: Path, monkeypatch, capsys) -> None:
     calls = {}
 
+    class FakeConnection:
+        closed = False
+
+        def close(self):
+            self.closed = True
+
+    fake_connection = FakeConnection()
+
     def fake_connect_database(database_path):
         calls["db"] = database_path
-        return "connection"
+        return fake_connection
 
     def fake_validate_database(connection):
         calls["connection"] = connection
@@ -70,6 +92,7 @@ def test_cli_validate_wires_database_to_validation(tmp_path: Path, monkeypatch, 
     output = capsys.readouterr().out
     assert exit_code == 0
     assert calls["db"] == (tmp_path / "db.sqlite").resolve(strict=False)
-    assert calls["connection"] == "connection"
+    assert calls["connection"] is fake_connection
+    assert fake_connection.closed
     assert "issues: 1" in output
     assert "warning: example: example warning" in output

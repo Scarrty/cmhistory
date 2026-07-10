@@ -29,20 +29,19 @@ def import_shipment_sheet(
     link_articles: bool = True,
 ) -> int:
     imported_count = 0
-    with connection:
-        for row in resolve_shipment_groups(sheet):
-            if not row.is_header_row:
-                continue
-            _import_shipment_header(
-                connection,
-                import_file_id=import_file_id,
-                source_row_number=row.source_row_number,
-                values=row.inherited_values,
-                metadata=metadata,
-            )
-            imported_count += 1
-        if link_articles:
-            link_article_lines_to_shipments(connection, record_issues=False)
+    for row in resolve_shipment_groups(sheet):
+        if not row.is_header_row:
+            continue
+        _import_shipment_header(
+            connection,
+            import_file_id=import_file_id,
+            source_row_number=row.source_row_number,
+            values=row.inherited_values,
+            metadata=metadata,
+        )
+        imported_count += 1
+    if link_articles:
+        link_article_lines_to_shipments(connection, record_issues=False)
     return imported_count
 
 

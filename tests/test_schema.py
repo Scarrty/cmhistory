@@ -1,6 +1,6 @@
 import sqlite3
 
-from cm_dashboard.db import apply_migrations, connect_database, create_database
+from cm_dashboard.db import MIGRATIONS_PATH, apply_migrations, connect_database, create_database
 
 REQUIRED_TABLES = {
     "schema_migrations",
@@ -57,7 +57,8 @@ def test_migrations_are_idempotent(tmp_path) -> None:
     apply_migrations(connection)
 
     applied = connection.execute("SELECT migration_id FROM schema_migrations").fetchall()
-    assert [row["migration_id"] for row in applied] == ["001_init.sql"]
+    expected = sorted(path.name for path in MIGRATIONS_PATH.glob("*.sql"))
+    assert [row["migration_id"] for row in applied] == expected
 
 
 def test_connections_enable_foreign_keys() -> None:

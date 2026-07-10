@@ -121,3 +121,59 @@ def test_import_article_sheet_keeps_multiple_observed_labels_for_one_product(tmp
         ).fetchall()
     }
     assert labels == {"Charizard", "Glurak"}
+
+
+def test_import_article_sheet_preserves_repeated_identical_positions(tmp_path) -> None:
+    connection = create_database(tmp_path / "cardmarket.db")
+    metadata = require_parsed_filename(
+        "SOLD ARTICLES-BYPURCHASEDATE-2026-01-01_2026-01-31.CSV"
+    )
+    row = (
+        "same-order",
+        "2026-01-01 10:00:00",
+        "Synthetic Card",
+        "123",
+        "Synthetic Card",
+        "Synthetic Set",
+        "Synthetic Category",
+        "1",
+        "8.0",
+        "8.0",
+        "EUR",
+        "",
+    )
+    sheet = WorksheetData(
+        path="in-memory.csv",
+        sheet_name="CSV",
+        headers=(
+            "Shipment nr.",
+            "Date of purchase",
+            "Article",
+            "Product ID",
+            "Localized Product Name",
+            "Expansion",
+            "Category",
+            "Amount",
+            "Article Value",
+            "Total",
+            "Currency",
+            "Comments",
+        ),
+        rows=(row, row),
+    )
+    import_file_id = upsert_import_file(
+        connection,
+        path=__file__,
+        metadata=metadata,
+        sheet_name=sheet.sheet_name,
+        row_count=sheet.row_count,
+    )
+
+    import_article_sheet(
+        connection,
+        import_file_id=import_file_id,
+        sheet=sheet,
+        metadata=metadata,
+    )
+
+    assert connection.execute("SELECT COUNT(*) FROM article_lines").fetchone()[0] == 2

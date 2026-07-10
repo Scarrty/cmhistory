@@ -7,7 +7,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from cm_dashboard.importing.deduplication import article_business_key_string
+from cm_dashboard.importing.deduplication import (
+    ArticleBusinessKey,
+    article_business_keys,
+    serialize_article_business_key,
+)
 from cm_dashboard.importing.filename import DateBasis, ParsedFilename
 from cm_dashboard.importing.normalize import (
     normalize_currency,
@@ -28,17 +32,20 @@ def import_article_sheet(
     metadata: ParsedFilename,
 ) -> int:
     imported_count = 0
-    with connection:
-        for source_row_number, row in enumerate(sheet.rows, start=2):
-            row_values = dict(zip(sheet.headers, row, strict=True))
-            _import_article_row(
-                connection,
-                import_file_id=import_file_id,
-                source_row_number=source_row_number,
-                row=row_values,
-                metadata=metadata,
-            )
-            imported_count += 1
+    business_keys = article_business_keys(sheet, metadata)
+    for source_row_number, (row, business_key) in enumerate(
+        zip(sheet.rows, business_keys, strict=True), start=2
+    ):
+        row_values = dict(zip(sheet.headers, row, strict=True))
+        _import_article_row(
+            connection,
+            import_file_id=import_file_id,
+            source_row_number=source_row_number,
+            row=row_values,
+            metadata=metadata,
+            business_key=business_key,
+        )
+        imported_count += 1
     return imported_count
 
 
@@ -53,47 +60,46 @@ def link_article_lines_to_shipments(
     *,
     record_issues: bool = True,
 ) -> ArticleShipmentLinkResult:
-    with connection:
-        cursor = connection.execute(
-            """
-            UPDATE article_lines
-            SET shipment_id = (
-                SELECT shipments.shipment_id
-                FROM shipments
-                WHERE shipments.order_id = article_lines.order_id
-            )
-            WHERE shipment_id IS NULL
-              AND EXISTS (
-                SELECT 1
-                FROM shipments
-                WHERE shipments.order_id = article_lines.order_id
-              )
-            """
+    cursor = connection.execute(
+        """
+        UPDATE article_lines
+        SET shipment_id = (
+            SELECT shipments.shipment_id
+            FROM shipments
+            WHERE shipments.order_id = article_lines.order_id
         )
-        unmatched_rows = connection.execute(
+        WHERE shipment_id IS NULL
+          AND EXISTS (
+            SELECT 1
+            FROM shipments
+            WHERE shipments.order_id = article_lines.order_id
+          )
+        """
+    )
+    unmatched_rows = connection.execute(
+        """
+        SELECT order_id, MIN(source_import_file_id) AS import_file_id
+        FROM article_lines
+        WHERE shipment_id IS NULL
+        GROUP BY order_id
+        ORDER BY order_id
+        """
+    ).fetchall()
+    if record_issues:
+        connection.executemany(
             """
-            SELECT order_id, MIN(source_import_file_id) AS import_file_id
-            FROM article_lines
-            WHERE shipment_id IS NULL
-            GROUP BY order_id
-            ORDER BY order_id
-            """
-        ).fetchall()
-        if record_issues:
-            connection.executemany(
-                """
-                INSERT INTO import_issues (
-                    import_file_id, severity, code, message
-                ) VALUES (?, 'warning', 'unmatched_article_order', ?)
-                """,
+            INSERT INTO import_issues (
+                import_file_id, severity, code, message
+            ) VALUES (?, 'warning', 'unmatched_article_order', ?)
+            """,
+            (
                 (
-                    (
-                        row["import_file_id"],
-                        f"Article order {row['order_id']} has no matching shipment",
-                    )
-                    for row in unmatched_rows
-                ),
-            )
+                    row["import_file_id"],
+                    f"Article order {row['order_id']} has no matching shipment",
+                )
+                for row in unmatched_rows
+            ),
+        )
 
     return ArticleShipmentLinkResult(
         linked_count=cursor.rowcount,
@@ -108,6 +114,7 @@ def _import_article_row(
     source_row_number: int,
     row: dict[str, Any],
     metadata: ParsedFilename,
+    business_key: ArticleBusinessKey,
 ) -> None:
     order_id = _required_identifier(row.get("Shipment nr."), "Shipment nr.")
     product_id = _required_identifier(row.get("Product ID"), "Product ID")
@@ -116,7 +123,7 @@ def _import_article_row(
     category_name = normalize_text(row.get("Category"))
     date_column = _article_date_column(metadata.date_basis)
     event_datetime = _required_datetime(row.get(date_column), date_column)
-    business_key = article_business_key_string(row, metadata)
+    business_key_value = serialize_article_business_key(business_key)
 
     connection.execute("INSERT OR IGNORE INTO products (product_id) VALUES (?)", (product_id,))
     if localized_name:
@@ -166,7 +173,7 @@ def _import_article_row(
             normalize_text(row.get("Comments")),
             import_file_id,
             source_row_number,
-            business_key,
+            business_key_value,
         ),
     )
 
