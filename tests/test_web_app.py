@@ -33,6 +33,38 @@ def test_web_app_rejects_invalid_filter_values(tmp_path) -> None:
     assert client.get("/?date_basis=invalid").status_code == 422
     assert client.get("/?start_date=not-a-date").status_code == 422
     assert client.get("/?start_date=2026-08-02&end_date=2026-08-01").status_code == 422
+    assert client.get("/articles?page=0").status_code == 422
+    assert client.get("/shipments?page=not-a-number").status_code == 422
+
+
+def test_article_pages_expose_all_filtered_rows(tmp_path) -> None:
+    database_path = tmp_path / "cardmarket.db"
+    connection = create_database(database_path)
+    connection.executemany(
+        """
+        INSERT INTO article_lines(
+            order_id, direction, date_basis, event_datetime,
+            article_name_snapshot, quantity, article_value, total, currency, business_key
+        )
+        VALUES (?, 'SOLD', 'PAYMENTDATE', '2026-08-12 10:00:00',
+                'Synthetic Card', 1, '8', '8', 'EUR', ?)
+        """,
+        [(f"order-{index:04d}", f"article-key-{index}") for index in range(105)],
+    )
+    connection.commit()
+    connection.close()
+    client = TestClient(create_app(database_path=database_path))
+
+    first_page = client.get("/articles?direction=SOLD")
+    second_page = client.get("/articles?direction=SOLD&page=2")
+
+    assert first_page.status_code == 200
+    assert "1&ndash;100 of 105" in first_page.text
+    assert 'href="/articles?direction=SOLD&amp;page=2"' in first_page.text
+    assert second_page.status_code == 200
+    assert "101&ndash;105 of 105" in second_page.text
+    assert "Page 2 of 2" in second_page.text
+    assert "order-0000" in second_page.text
 
 
 def test_web_app_sets_local_security_headers_and_rejects_unknown_hosts(tmp_path) -> None:

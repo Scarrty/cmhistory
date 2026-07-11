@@ -10,8 +10,10 @@ import sqlite3
 import typing
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlencode
 
 
 def _patch_python314_typing_for_pydantic() -> None:
@@ -44,6 +46,8 @@ from cm_dashboard.reporting.queries import (
     DEFAULT_DATE_BASIS,
     AmbiguousShipmentError,
     ReportingFilters,
+    count_article_lines,
+    count_shipments,
     fetch_article_lines,
     fetch_shipment_articles,
     fetch_shipment_detail,
@@ -55,6 +59,7 @@ from cm_dashboard.reporting.queries import (
 )
 
 WEB_DIR = Path(__file__).resolve().parent
+PAGE_SIZE = 100
 PERIOD_REPORT_FIELDS = (
     "section",
     "date_basis",
@@ -68,6 +73,29 @@ PERIOD_REPORT_FIELDS = (
 )
 templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
 templates.env.filters["mask_text"] = lambda value: _mask_text(value)
+
+
+@dataclass(frozen=True)
+class Pagination:
+    page: int
+    page_size: int
+    total_count: int
+
+    @property
+    def offset(self) -> int:
+        return (self.page - 1) * self.page_size
+
+    @property
+    def page_count(self) -> int:
+        return max(1, (self.total_count + self.page_size - 1) // self.page_size)
+
+    @property
+    def first_item(self) -> int:
+        return self.offset + 1 if self.offset < self.total_count else 0
+
+    @property
+    def last_item(self) -> int:
+        return min(self.offset + self.page_size, self.total_count)
 
 
 def create_app(database_path: str | Path | None = None) -> FastAPI:
@@ -156,8 +184,16 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     @app.get("/shipments", response_class=HTMLResponse)
     def shipments(request: Request):
         filters = _filters_from_request(request)
+        page = _validated_positive_int("page", request.query_params.get("page"), default=1)
         with _database_connection(app.state.database_path) as connection:
-            rows = fetch_shipments(connection, filters)
+            total_count = count_shipments(connection, filters)
+            pagination = Pagination(page=page, page_size=PAGE_SIZE, total_count=total_count)
+            rows = fetch_shipments(
+                connection,
+                filters,
+                limit=pagination.page_size,
+                offset=pagination.offset,
+            )
         return templates.TemplateResponse(
             request,
             "shipments.html",
@@ -166,14 +202,23 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
                 "active_nav": "shipments",
                 "filters": filters,
                 "shipments": rows,
+                **_pagination_context(request, pagination),
             },
         )
 
     @app.get("/articles", response_class=HTMLResponse)
     def articles(request: Request):
         filters = _filters_from_request(request)
+        page = _validated_positive_int("page", request.query_params.get("page"), default=1)
         with _database_connection(app.state.database_path) as connection:
-            rows = fetch_article_lines(connection, filters)
+            total_count = count_article_lines(connection, filters)
+            pagination = Pagination(page=page, page_size=PAGE_SIZE, total_count=total_count)
+            rows = fetch_article_lines(
+                connection,
+                filters,
+                limit=pagination.page_size,
+                offset=pagination.offset,
+            )
         return templates.TemplateResponse(
             request,
             "articles.html",
@@ -182,11 +227,13 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
                 "active_nav": "articles",
                 "filters": filters,
                 "articles": rows,
+                **_pagination_context(request, pagination),
             },
         )
 
     @app.get("/products/{product_id}", response_class=HTMLResponse)
     def product_detail(request: Request, product_id: str):
+        page = _validated_positive_int("page", request.query_params.get("page"), default=1)
         with _database_connection(app.state.database_path) as connection:
             product = connection.execute(
                 "SELECT product_id FROM products WHERE product_id = ?",
@@ -204,7 +251,14 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
                 """,
                 (product_id,),
             ).fetchall()
-            articles = fetch_article_lines(connection, filters)
+            total_count = count_article_lines(connection, filters)
+            pagination = Pagination(page=page, page_size=PAGE_SIZE, total_count=total_count)
+            articles = fetch_article_lines(
+                connection,
+                filters,
+                limit=pagination.page_size,
+                offset=pagination.offset,
+            )
             totals = period_totals(connection, filters)
         return templates.TemplateResponse(
             request,
@@ -216,6 +270,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
                 "labels": labels,
                 "articles": articles,
                 "totals": totals,
+                **_pagination_context(request, pagination),
             },
         )
 
@@ -340,6 +395,40 @@ def _validated_choice(
         choices = ", ".join(sorted(allowed))
         raise HTTPException(status_code=422, detail=f"{name} must be one of: {choices}")
     return normalized
+
+
+def _validated_positive_int(name: str, value: str | None, *, default: int) -> int:
+    if not value:
+        return default
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"{name} must be a positive integer") from exc
+    if parsed <= 0:
+        raise HTTPException(status_code=422, detail=f"{name} must be a positive integer")
+    return parsed
+
+
+def _pagination_context(request: Request, pagination: Pagination) -> dict:
+    return {
+        "pagination": pagination,
+        "previous_url": (
+            _page_url(request, pagination.page - 1) if pagination.page > 1 else None
+        ),
+        "next_url": (
+            _page_url(request, pagination.page + 1)
+            if pagination.page < pagination.page_count
+            else None
+        ),
+    }
+
+
+def _page_url(request: Request, page: int) -> str:
+    query = [(key, value) for key, value in request.query_params.items() if key != "page"]
+    if page > 1:
+        query.append(("page", str(page)))
+    encoded = urlencode(query)
+    return f"{request.url.path}?{encoded}" if encoded else request.url.path
 
 
 def _mask_text(value) -> str:

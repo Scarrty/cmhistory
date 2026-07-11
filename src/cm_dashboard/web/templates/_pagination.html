@@ -1,0 +1,20 @@
+<nav class="pagination" aria-label="Pagination">
+  <span class="muted">
+    {% if pagination.total_count %}
+      {{ pagination.first_item }}&ndash;{{ pagination.last_item }} of {{ pagination.total_count }}
+    {% else %}
+      0 rows
+    {% endif %}
+  </span>
+  {% if pagination.total_count %}
+  <div class="pagination-actions">
+    {% if previous_url %}
+    <a class="button-link" href="{{ previous_url }}">Previous</a>
+    {% endif %}
+    <span>Page {{ pagination.page }} of {{ pagination.page_count }}</span>
+    {% if next_url %}
+    <a class="button-link" href="{{ next_url }}">Next</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</nav>

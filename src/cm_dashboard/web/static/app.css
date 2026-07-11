@@ -191,6 +191,32 @@ button {
   overflow-x: auto;
 }
 
+.pagination {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-top: 14px;
+}
+
+.pagination-actions {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.button-link {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--accent-strong);
+  font-weight: 700;
+  padding: 7px 10px;
+}
+
+.button-link:hover {
+  background: #e7f4f2;
+}
+
 table {
   border-collapse: collapse;
   min-width: 760px;
@@ -270,5 +296,11 @@ h2 {
 
   .chart-row {
     grid-template-columns: 145px minmax(90px, 1fr) 80px;
+  }
+
+  .pagination {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
   }
 }

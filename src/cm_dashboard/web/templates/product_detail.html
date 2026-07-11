@@ -43,7 +43,7 @@
   <section class="panel">
     <div class="section-header">
       <h2>Article lines</h2>
-      <span class="muted">{{ articles|length }} rows</span>
+      <span class="muted">{{ pagination.total_count }} rows</span>
     </div>
     <div class="table-wrap">
       <table>
@@ -79,6 +79,7 @@
         </tbody>
       </table>
     </div>
+    {% include "_pagination.html" %}
   </section>
 </div>
 {% endblock %}

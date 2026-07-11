@@ -6,6 +6,8 @@ from cm_dashboard.importing.source_scan import SourceFile
 from cm_dashboard.reporting.queries import (
     AmbiguousShipmentError,
     ReportingFilters,
+    count_article_lines,
+    count_shipments,
     fetch_article_lines,
     fetch_shipment_detail,
     fetch_shipments,
@@ -175,6 +177,57 @@ def test_default_reporting_basis_does_not_double_count_event_views(tmp_path) -> 
     assert purchase_totals["sales_total"] == 8
     assert all_views["article_line_count"] == 2
     assert all_views["sales_total"] == 16
+
+
+def test_reporting_lists_support_counted_stable_pages(tmp_path) -> None:
+    connection = create_database(tmp_path / "cardmarket.db")
+    connection.executemany(
+        """
+        INSERT INTO article_lines(
+            order_id, direction, date_basis, event_datetime,
+            article_name_snapshot, quantity, article_value, total, currency, business_key
+        )
+        VALUES (?, 'SOLD', 'PAYMENTDATE', '2026-08-12 10:00:00',
+                'Synthetic Card', 1, '8', '8', 'EUR', ?)
+        """,
+        [(f"article-order-{index}", f"article-key-{index}") for index in range(3)],
+    )
+    shipment_ids = []
+    for index in range(3):
+        cursor = connection.execute(
+            "INSERT INTO shipments(order_id, direction) VALUES (?, 'SOLD')",
+            (f"shipment-order-{index}",),
+        )
+        shipment_ids.append(cursor.lastrowid)
+    connection.executemany(
+        """
+        INSERT INTO shipment_events(shipment_id, event_type, event_datetime)
+        VALUES (?, 'PAYMENTDATE', '2026-08-12 10:00:00')
+        """,
+        [(shipment_id,) for shipment_id in shipment_ids],
+    )
+
+    assert count_article_lines(connection) == 3
+    assert [row["order_id"] for row in fetch_article_lines(connection, limit=2)] == [
+        "article-order-2",
+        "article-order-1",
+    ]
+    assert [
+        row["order_id"] for row in fetch_article_lines(connection, limit=2, offset=2)
+    ] == ["article-order-0"]
+    assert count_shipments(connection) == 3
+    assert len(fetch_shipments(connection, limit=2)) == 2
+    assert len(fetch_shipments(connection, limit=2, offset=2)) == 1
+
+
+@pytest.mark.parametrize("limit, offset", [(0, 0), (-1, 0), (1, -1)])
+def test_reporting_lists_reject_invalid_page_bounds(tmp_path, limit, offset) -> None:
+    connection = create_database(tmp_path / "cardmarket.db")
+
+    with pytest.raises(ValueError):
+        fetch_article_lines(connection, limit=limit, offset=offset)
+    with pytest.raises(ValueError):
+        fetch_shipments(connection, limit=limit, offset=offset)
 
 
 def _metadata(path):

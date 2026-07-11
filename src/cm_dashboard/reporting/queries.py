@@ -34,10 +34,12 @@ def fetch_article_lines(
     filters: ReportingFilters | None = None,
     *,
     limit: int = 500,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
+    _validate_page_bounds(limit, offset)
     filters = filters or ReportingFilters()
     where, params = _article_where(filters)
-    params.append(limit)
+    params.extend((limit, offset))
     rows = connection.execute(
         f"""
         SELECT
@@ -62,11 +64,29 @@ def fetch_article_lines(
         LEFT JOIN shipments ON shipments.shipment_id = article_lines.shipment_id
         {where}
         ORDER BY article_lines.event_datetime DESC, article_lines.article_line_id DESC
-        LIMIT ?
+        LIMIT ? OFFSET ?
         """,
         params,
     ).fetchall()
     return [_row_dict(row) for row in rows]
+
+
+def count_article_lines(
+    connection: sqlite3.Connection,
+    filters: ReportingFilters | None = None,
+) -> int:
+    filters = filters or ReportingFilters()
+    where, params = _article_where(filters)
+    row = connection.execute(
+        f"""
+        SELECT COUNT(*)
+        FROM article_lines
+        LEFT JOIN shipments ON shipments.shipment_id = article_lines.shipment_id
+        {where}
+        """,
+        params,
+    ).fetchone()
+    return int(row[0])
 
 
 def fetch_shipments(
@@ -74,10 +94,12 @@ def fetch_shipments(
     filters: ReportingFilters | None = None,
     *,
     limit: int = 500,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
+    _validate_page_bounds(limit, offset)
     filters = filters or ReportingFilters()
     where, params = _shipment_where(filters)
-    params.append(limit)
+    params.extend((limit, offset))
     rows = connection.execute(
         f"""
         SELECT DISTINCT
@@ -96,12 +118,30 @@ def fetch_shipments(
         FROM shipments
         LEFT JOIN shipment_events ON shipment_events.shipment_id = shipments.shipment_id
         {where}
-        ORDER BY shipments.order_id DESC
-        LIMIT ?
+        ORDER BY shipments.order_id DESC, shipments.shipment_id DESC
+        LIMIT ? OFFSET ?
         """,
         params,
     ).fetchall()
     return [_row_dict(row) for row in rows]
+
+
+def count_shipments(
+    connection: sqlite3.Connection,
+    filters: ReportingFilters | None = None,
+) -> int:
+    filters = filters or ReportingFilters()
+    where, params = _shipment_where(filters)
+    row = connection.execute(
+        f"""
+        SELECT COUNT(DISTINCT shipments.shipment_id)
+        FROM shipments
+        LEFT JOIN shipment_events ON shipment_events.shipment_id = shipments.shipment_id
+        {where}
+        """,
+        params,
+    ).fetchone()
+    return int(row[0])
 
 
 def fetch_shipment_detail(
@@ -362,3 +402,10 @@ def _end_datetime(value: str | date) -> str:
 
 def _row_dict(row: sqlite3.Row) -> dict[str, Any]:
     return dict(row)
+
+
+def _validate_page_bounds(limit: int, offset: int) -> None:
+    if limit <= 0:
+        raise ValueError("limit must be greater than zero")
+    if offset < 0:
+        raise ValueError("offset must not be negative")

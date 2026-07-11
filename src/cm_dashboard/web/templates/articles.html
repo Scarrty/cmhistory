@@ -5,7 +5,7 @@
   <section class="panel">
     <div class="section-header">
       <h1>Articles</h1>
-      <span class="muted">{{ articles|length }} rows</span>
+      <span class="muted">{{ pagination.total_count }} rows</span>
     </div>
     <form class="filter-row" method="get" action="/articles">
       <div class="field">
@@ -96,6 +96,7 @@
         </tbody>
       </table>
     </div>
+    {% include "_pagination.html" %}
   </section>
 </div>
 {% endblock %}
