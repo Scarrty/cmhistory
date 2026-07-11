@@ -1,91 +1,113 @@
-# Monthly Import Workflow
+# Monatlicher Importablauf
 
-Diese Anleitung beschreibt, wie neue monatliche Cardmarket-Exports lokal hinzugefuegt,
-importiert und geprueft werden.
+Diese Anleitung beschreibt den wiederkehrenden Import neuer Cardmarket-Exporte in die lokale
+SQLite-Datenbank.
 
-## 1. Dateien ablegen
+## 1. Vorbereiten
 
-Lege neue Cardmarket-Dateien direkt in den Quellordner:
+1. Webserver und laufende Importe beenden.
+2. Neue Exporte direkt in den Quellordner legen.
+3. Vorhandene historische Dateien nicht umbenennen oder ersetzen.
 
-```text
-D:\OneDrive\Dokumente\CM History
-```
+Unterstuetzte Dateitypen: `.xls`, `.xlsx` und semikolongetrennte `.csv`.
 
-Unterstuetzt werden die bestehenden Exportfamilien:
+Unterstuetzte Exportfamilien:
 
 - `PURCHASED ARTICLES-BY...`
 - `PURCHASED SHIPMENTS-BY...`
 - `SOLD ARTICLES-BY...`
 - `SOLD SHIPMENTS-BY...`
 
-Die Dateinamen muessen Richtung, Entitaet, Datumsbasis und Zeitraum enthalten, zum Beispiel:
+Der Dateiname muss Richtung, Ebene, Datumsbasis und Zeitraum enthalten, zum Beispiel:
 
 ```text
-SOLD ARTICLES-BYPURCHASEDATE-2026-08-01_2026-08-31.XLS
+SOLD ARTICLES-BYPAYMENTDATE-2026-08-01_2026-08-31.XLSX
 PURCHASED SHIPMENTS-BYPAYMENTDATE-2026-08-01_2026-08-31.XLS
 ```
 
-## 2. Quelle pruefen
+## 2. Dateien erkennen
 
 ```powershell
 cd "D:\OneDrive\Dokumente\CM History"
-.\.venv\Scripts\python -m cm_dashboard.cli inspect-source --source "D:\OneDrive\Dokumente\CM History"
+.\.venv\Scripts\python -m cm_dashboard.cli inspect-source --source "."
 ```
 
-Erwartung:
+Pruefen:
 
-- Die neuen Dateien erscheinen in der Zahl der gueltigen Dateien.
-- Unerkannte Dateien werden als Warnung ausgegeben.
-- Private XLS/CSV-Dateien bleiben unversioniert.
+- Die Gesamtzahl steigt um die erwarteten neuen Dateien.
+- Keine neue Datei erscheint unter `unknown files`.
+- Richtung, Datumsbasis und Zeitraum im Dateinamen stimmen fachlich.
 
-## 3. Import erneut ausfuehren
+## 3. Inkrementell importieren
 
 ```powershell
-.\.venv\Scripts\python -m cm_dashboard.cli import --source "D:\OneDrive\Dokumente\CM History" --db "data\cardmarket.db"
+.\.venv\Scripts\python -m cm_dashboard.cli import --source "." --db "data\cardmarket.db"
 ```
 
-Der Import ist fuer Wiederholungen gedacht. Bereits bekannte Dateien und normalisierte
-Business Keys sollen keine doppelten Artikel-, Shipment- oder Produktdaten erzeugen.
+Die Ausgabe unterscheidet:
 
-## 4. Validierung ausfuehren
+- `imported files`: neue, erfolgreich normalisierte Dateien
+- `skipped files`: bekannte Dateien mit identischem Hash
+- `failed files`: isoliert zurueckgerollte Dateien mit gespeichertem Fehlerhinweis
+
+Der Befehl liefert einen Fehlercode, wenn mindestens eine Datei fehlschlaegt. Andere gueltige
+Dateien werden trotzdem verarbeitet. Ein Dateiimport wird entweder mit Roh- und Faktdaten
+vollstaendig abgeschlossen oder vollstaendig zurueckgerollt.
+
+## 4. Sonderfall: vorhandene Datei geaendert
+
+Wird unter einem bereits importierten Pfad ein anderer Dateiinhalt gefunden, stoppt die
+Anwendung die stille Wiederverwendung und markiert einen Konflikt. Nicht weiter inkrementell
+importieren. Zuerst klaeren, warum sich die historische Quelle geaendert hat; danach bewusst:
+
+```powershell
+.\.venv\Scripts\python -m cm_dashboard.cli rebuild --source "." --db "data\cardmarket.db"
+```
+
+Der Neuaufbau schreibt in eine temporaere DB und ersetzt `cardmarket.db` erst nach erfolgreichem
+Import aller Dateien sowie bestandener SQLite- und Foreign-Key-Pruefung. Eine funktionierende
+Alt-DB bleibt bei einem Fehler erhalten.
+
+## 5. Validieren
 
 ```powershell
 .\.venv\Scripts\python -m cm_dashboard.cli validate --db "data\cardmarket.db"
 ```
 
-Typische nicht-kritische Hinweise:
+Danach `/imports` pruefen. Erwartbare Informations- oder Warnhinweise koennen sein:
 
-- Fehlende Monatsabdeckung, wenn es fuer eine Datumsbasis oder Richtung keine passende
-  Gegen-Datei gibt.
-- Hinweise zu gruppierten Shipment-Zeilen, weil Cardmarket Shipment-Exports Header- und
-  Fortsetzungszeilen enthalten.
-- Warnungen zu doppelten Artikel-Business-Keys, wenn CSV und XLS dieselben Geschaeftsdaten
-  liefern.
-- Unverknuepfte Artikel-Orders, wenn ein Artikel-Export existiert, aber kein passender
-  Shipment-Export im Datenbestand liegt.
+- `duplicate_article_source_overlap`: parallele CSV/XLS-Quellen wurden dedupliziert
+- `shipment_grouping_summary`: Shipment-Fortsetzungen wurden ihrem Header zugeordnet
+- `missing_period_coverage`: Gegenexport oder Zeitraumabdeckung fehlt
+- `missing_shipment_event`: ein konkretes Shipmentdatum fehlt in der Quelle
 
-Kritisch waeren Parserfehler, unbekannte Spaltenfamilien, nicht erkannte Dateinamen oder
-neue Pflichtfelder, die nicht normalisiert werden koennen.
+Nicht akzeptieren:
 
-## 5. Dashboard oeffnen
+- `import_failed`
+- `source_file_changed` ohne geklaerte Ursache
+- unbekannte Header oder Pflichtfelder
+- neue Mengen-/Wert- oder Shipment-Summenabweichungen
+- SQLite-Integritaets- oder Foreign-Key-Fehler
+
+## 6. Fachliche Stichprobe
+
+In der Weboberflaeche mindestens pruefen:
+
+1. `/imports`: neue Datei hat Status `Importiert`.
+2. `/shipments`: eine neue Order ist in der richtigen Richtung vorhanden.
+3. Sendungsdetail: Kosten, Ereignisse und Artikelpositionen sind verknuepft.
+4. `/articles`: Artikeltext, Produkt-ID, Set, Kategorie, Menge und Betrag stimmen.
+5. Dashboard: gewaehlter Monat und Datumsbasis liefern plausible Werte.
+6. CSV-Report: derselbe Zeitraum und dieselbe Datumsbasis stimmen mit dem Dashboard ueberein.
+
+`PAYMENTDATE` ist der aktuelle Reporting-Standard. Ein Vergleich mit `PURCHASEDATE` ist sinnvoll,
+aber beide Sichten duerfen nicht addiert werden, weil sie dieselben Geschaeftspositionen abbilden.
+
+## 7. Dashboard starten
 
 ```powershell
-.\.venv\Scripts\python -m uvicorn cm_dashboard.web.app:app --reload
+.\.venv\Scripts\python -m uvicorn cm_dashboard.web.app:app `
+  --host 127.0.0.1 --port 8000 --no-access-log
 ```
 
-Danach `http://127.0.0.1:8000/` oeffnen.
-
-Wichtige Seiten:
-
-- `/imports`: pruefen, ob die neuen Dateien importiert wurden und ob Warnungen vorliegen.
-- `/shipments`: Bestellungen nach Zeitraum, Richtung, Datumsbasis, Username, Land oder Order-ID filtern.
-- `/articles`: Artikel nach Produkt-ID, Artikeltext, Expansion, Kategorie, Richtung und Zeitraum filtern.
-- `/reports/period.csv`: Zeitraumreport als CSV herunterladen. Query-Filter wie
-  `start_date`, `end_date`, `direction`, `date_basis`, `product_id`, `expansion` und
-  `category` koennen direkt angehaengt werden.
-
-Beispiel:
-
-```text
-http://127.0.0.1:8000/reports/period.csv?start_date=2026-08-01&end_date=2026-08-31&direction=SOLD
-```
+Nur lokal an `127.0.0.1` binden. Der MVP besitzt keine Authentifizierung.

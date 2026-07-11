@@ -1,88 +1,153 @@
 # Cardmarket History Dashboard
 
-Lokales Cardmarket Sales/Purchase Dashboard fuer die Exportdateien dieses Accounts.
+Lokales Sales/Purchase-Dashboard fuer historische und kuenftige Cardmarket-Exporte.
+Die Anwendung liest XLS, XLSX und CSV, bewahrt Rohzeilen mit Quellenbezug auf, normalisiert
+Artikel und Sendungen und verknuepft beide Ebenen ueber `direction + order_id`.
 
-Die Anwendung importiert Cardmarket XLS/CSV-Exporte, normalisiert Artikel und Shipments,
-verknuepft zusammengehoerige Datensaetze ueber Order-IDs und stellt die Daten als
-filterbares lokales Dashboard bereit.
+## Funktionsumfang
 
-## Status
+- Wiederholbarer Ordnerimport mit Hash-Pruefung, Datei-Savepoints und Fehlerfortsetzung
+- Atomarer Neuaufbau der SQLite-Datenbank ohne Austausch einer funktionierenden Alt-DB bei Fehlern
+- Deduplizierung paralleler CSV/XLS-Exporte bei Erhalt echter identischer Mehrfachpositionen
+- Sendungen, Kauf-/Zahlungsevents, Artikel, Produkte, Bezeichnungen, Sets und Kategorien
+- Datenqualitaetspruefungen fuer Abdeckung, Verknuepfung und Summenabgleich
+- Deutsches, responsives Dashboard mit Monatsdiagramm und maskierten Personendaten
+- Serverseitige Pagination sowie Filter fuer Zeitraum, Richtung, Artikel, Produkt, Set,
+  Kategorie, Handelspartner, Land, Waehrung, Betrag, Menge, Kommentar, Import und Verknuepfung
+- CSV-Zeitraumreport mit denselben Reporting-Filtern
 
-Der MVP ist als lokales Python/FastAPI/SQLite-Projekt umgesetzt. Enthalten sind:
+Die technische Struktur und die Datenfluesse stehen in
+[docs/architecture.md](docs/architecture.md). Der fachliche Quellenbefund steht in
+[Datenmodell.md](Datenmodell.md).
 
-- Quellordner-Scan fuer Cardmarket XLS/CSV-Dateien
-- Filename-Klassifizierung nach Richtung, Entitaet, Datumsbasis und Zeitraum
-- Raw-Staging mit Datei- und Zeilenreferenz
-- Normalisierung von Artikeln, Shipments, Events, Produkten, Labels, Sets und Kategorien
-- Verknuepfung von Artikelzeilen mit Shipments ueber Order-ID
-- Idempotenter Re-Import ohne doppelte normalisierte Fakten
-- Validierungsreport fuer bekannte Datenqualitaets- und Abdeckungsprobleme
-- Lokale Weboberflaeche mit Dashboard, Importstatus, Shipment-, Artikel- und Produktansichten
-- CSV-Export fuer einfache Zeitraumreports
+## Voraussetzungen
 
-## Setup
+- Stabiles Python 3.12 oder neuer
+- PowerShell fuer die dokumentierten Windows-Befehle
+- Cardmarket-Exporte mit den vorhandenen Dateinamens- und Spaltenfamilien
+
+Die Anwendung arbeitet lokal. Sie benoetigt keine Cardmarket-API und uebertraegt keine
+Quelldaten an externe Dienste.
+
+## Installation
 
 ```powershell
 cd "D:\OneDrive\Dokumente\CM History"
 python -m venv .venv
+.\.venv\Scripts\python -m pip install --upgrade pip
 .\.venv\Scripts\python -m pip install -e ".[dev]"
 ```
 
-## Import und Validierung
+## Erster Datenbankaufbau
 
 ```powershell
-.\.venv\Scripts\python -m cm_dashboard.cli inspect-source --source "D:\OneDrive\Dokumente\CM History"
-.\.venv\Scripts\python -m cm_dashboard.cli import --source "D:\OneDrive\Dokumente\CM History" --db "data\cardmarket.db"
+.\.venv\Scripts\python -m cm_dashboard.cli inspect-source --source "."
+.\.venv\Scripts\python -m cm_dashboard.cli rebuild --source "." --db "data\cardmarket.db"
 .\.venv\Scripts\python -m cm_dashboard.cli validate --db "data\cardmarket.db"
 ```
 
-Der Import kann erneut ausgefuehrt werden, wenn neue Monatsdateien im Quellordner liegen.
-Bereits importierte Dateien werden anhand Hash und Business Keys idempotent behandelt.
+`rebuild` importiert in eine temporaere Datenbank, prueft SQLite-Integritaet und Foreign Keys
+und ersetzt die Zieldatenbank erst nach vollstaendigem Erfolg.
 
-## Web App starten
+## Monatlicher Import
+
+Neue Exportdateien werden in den Quellordner gelegt. Danach:
 
 ```powershell
-.\.venv\Scripts\python -m uvicorn cm_dashboard.web.app:app --reload
+.\.venv\Scripts\python -m cm_dashboard.cli inspect-source --source "."
+.\.venv\Scripts\python -m cm_dashboard.cli import --source "." --db "data\cardmarket.db"
+.\.venv\Scripts\python -m cm_dashboard.cli validate --db "data\cardmarket.db"
+```
+
+Unveraenderte Dateien werden uebersprungen. Eine bereits importierte Datei mit gleichem Pfad,
+aber anderem Inhalt wird nicht still mit alten Fakten vermischt; sie erfordert einen bewussten
+`rebuild`. Einzelne defekte neue Dateien werden als fehlgeschlagen gespeichert, waehrend der
+Rest des Ordners weiter importiert wird. Details stehen in
+[docs/monthly_import.md](docs/monthly_import.md).
+
+## Weboberflaeche
+
+```powershell
+.\.venv\Scripts\python -m uvicorn cm_dashboard.web.app:app `
+  --host 127.0.0.1 --port 8000 --no-access-log
 ```
 
 Danach lokal oeffnen:
 
-- `http://127.0.0.1:8000/` fuer Dashboard und Monatsdiagramm
-- `http://127.0.0.1:8000/imports` fuer Importdateien und Validierungsissues
-- `http://127.0.0.1:8000/shipments` fuer Bestell-/Shipment-Suche
-- `http://127.0.0.1:8000/articles` fuer Artikel- und Produktfilter
-- `http://127.0.0.1:8000/reports/period.csv` fuer CSV-Reports mit Query-Filtern
+- `http://127.0.0.1:8000/` - Kennzahlen, Filter und Monatsdiagramm
+- `http://127.0.0.1:8000/imports` - alle Importdateien und Validierungshinweise
+- `http://127.0.0.1:8000/shipments` - Sendungsexplorer und Details
+- `http://127.0.0.1:8000/articles` - Artikelexplorer und Produktdetails
+- `http://127.0.0.1:8000/reports/period.csv` - gefilterter Zeitraumreport
 
-## Monatliche Exporte
+Die App lehnt unbekannte Host-Header ab und ist fuer `127.0.0.1` ausgelegt. Sie besitzt keine
+Authentifizierung und darf deshalb nicht an `0.0.0.0` oder ins Internet gebunden werden.
 
-Neue Cardmarket-Exports werden direkt in den lokalen Quellordner gelegt. Danach:
+## Reporting-Semantik
 
-1. `inspect-source` ausfuehren und pruefen, ob die Datei erkannt wurde.
-2. `import` erneut ausfuehren.
-3. `validate` ausfuehren und Warnungen pruefen.
-4. Web App starten oder aktualisieren.
+- `PAYMENTDATE` ist die sichtbare Standard-Datumsbasis, weil sie im aktuellen Artikelbestand
+  alle bekannten Sendungen abdeckt. `PURCHASEDATE` kann explizit gewaehlt werden.
+- Kauf- und Zahlungsansicht werden nie unbemerkt addiert; das wuerde dieselben physischen
+  Artikelpositionen doppelt zaehlen.
+- Betrag bedeutet im Artikelexplorer `article_lines.total`, im Sendungsexplorer
+  `shipments.total_value`.
+- Werte werden nicht zwischen Waehrungen umgerechnet. Vor einer kuenftigen Nutzung mehrerer
+  Waehrungen muss ein fachliches Umrechnungsmodell festgelegt werden.
+- Der CSV-Report ist eine Artikelwert-/Monatsaggregation. Er ist kein Steuer-, Gewinn- oder
+  Inventarreport.
 
-Details stehen in [docs/monthly_import.md](docs/monthly_import.md).
+## Validierung verstehen
 
-## Datenschutz
+`validate` berechnet abgeleitete Hinweise neu. Die Importseite bewahrt zusaetzlich konkrete
+Dateifehler und fehlende Shipment-Events auf. Typische Codes:
 
-Cardmarket-Quelldateien enthalten private Account-, Handels- und personenbezogene Daten.
-Sie werden nicht versioniert. Die `.gitignore` schliesst unter anderem aus:
+- `missing_period_coverage`: eine erwartete Gegen-Datei oder Monatsabdeckung fehlt
+- `duplicate_article_source_overlap`: dieselben Geschaeftszeilen liegen in CSV und XLS vor und
+  wurden nur einmal normalisiert
+- `shipment_grouping_summary`: Shipment-Header und Fortsetzungszeilen wurden gruppiert
+- `missing_shipment_event`: ein Shipment-Export enthaelt kein verwertbares Eventdatum
 
-- `*.XLS`, `*.xls`
-- `*.XLSX`, `*.xlsx`
-- `*.CSV`, `*.csv`
-- `data/*.db`
-- `.venv/`
+Warnungen sind zu pruefen, aber nicht automatisch Datenverlust. Fehler beim Lesen,
+Normalisieren oder bei geaenderten Quelldateien erfordern eine Korrektur bzw. einen Neuaufbau.
 
-Normale Listen- und Detailseiten maskieren Nutzernamen und zeigen keine Adress-, Namens-
-oder VAT-Details an.
-
-## Entwicklung pruefen
+## Entwicklung und Verifikation
 
 ```powershell
-.\.venv\Scripts\python -m pytest
-.\.venv\Scripts\python -m ruff check src tests
+.\.venv\Scripts\python -m ruff check src tests scripts
+.\.venv\Scripts\python -m mypy
+.\.venv\Scripts\python -m pytest -q
+.\.venv\Scripts\python -m pip check
+.\.venv\Scripts\python -m pip_audit
+.\.venv\Scripts\python -m build
+.\.venv\Scripts\python scripts\verify_distribution.py --dist dist
 ```
 
-Die umfangreichere lokale Vollpruefung wird mit dem MVP-Verifikationsskript gebuendelt.
+Die vollstaendige lokale Pruefung inklusive aller privaten Quelldateien und frischem
+Datenbankaufbau startet mit:
+
+```powershell
+.\scripts\verify_mvp.ps1
+```
+
+GitHub Actions fuehrt fuer Python 3.12 Linting, Typpruefung, Tests, Dependency-Audit und
+Distributionspruefung ohne Zugriff auf private Exporte aus.
+
+## Datenschutz und Betrieb
+
+- XLS/XLSX/CSV, SQLite-Datenbanken, Logs, virtuelle Umgebungen und Build-Ausgaben sind ignoriert.
+- Normale Seiten maskieren Benutzernamen und Namen und lesen keine Adress- oder VAT-Felder aus.
+- Access-Logs sind fuer den normalen Start deaktiviert, damit Order-IDs und Filter nicht in
+  lokalen Logdateien landen.
+- Das aktuelle Repository enthaelt keine bekannten konkreten Quelldatenwerte. Aeltere Git-Historie
+  kann vor der Redigierung eingecheckte Fragmente enthalten; eine Historienumschreibung erfordert
+  eine separate, koordinierte Entscheidung.
+- SQLite und gleichzeitige OneDrive-Synchronisierung koennen Dateisperren oder Konfliktkopien
+  erzeugen. Import und Webserver nicht parallel betreiben; fuer dauerhaften Betrieb sollte die
+  aktive DB ausserhalb eines synchronisierten Ordners liegen.
+
+## Bewusste MVP-Grenzen
+
+Nicht enthalten sind Web-Uploads, asynchrone Jobs, Mehrbenutzerbetrieb, Rollen, Hosting,
+automatische Backups, PDF/Excel-Reports, Steuerlogik, FIFO/Inventar und belastbare Einzelmargen.
+Weitere fachlich offene Punkte stehen im
+[Projekt-Audit](OUTPUT/PROJECT_AUDIT_AND_OPTIMIZATION.md).

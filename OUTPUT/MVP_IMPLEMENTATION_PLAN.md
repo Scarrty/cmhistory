@@ -1,5 +1,9 @@
 # MVP Implementation Plan
 
+> Historisches Planungsdokument vor der Umsetzung. Fuer den tatsaechlichen Stand, offene
+> Punkte und Verifikation gelten die aktuelle `README.md` und
+> `OUTPUT/PROJECT_AUDIT_AND_OPTIMIZATION.md`.
+
 ## Goal
 
 Build a small, local-first Cardmarket Sales/Purchase Dashboard from the existing export files in `D:\OneDrive\Dokumente\CM History`.
