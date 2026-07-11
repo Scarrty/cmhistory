@@ -7,6 +7,7 @@ import sqlite3
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 from cm_dashboard.db import create_database
 from cm_dashboard.importing.article_import import (
@@ -265,10 +266,13 @@ def _existing_import_file(
     connection: sqlite3.Connection, path: str | Path
 ) -> sqlite3.Row | None:
     source_path = str(Path(path).resolve(strict=False))
-    return connection.execute(
-        "SELECT * FROM import_files WHERE original_path = ?",
-        (source_path,),
-    ).fetchone()
+    return cast(
+        sqlite3.Row | None,
+        connection.execute(
+            "SELECT * FROM import_files WHERE original_path = ?",
+            (source_path,),
+        ).fetchone(),
+    )
 
 
 def _record_changed_source_issue(connection: sqlite3.Connection, import_file_id: int) -> None:

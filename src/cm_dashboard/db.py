@@ -6,9 +6,7 @@ import sqlite3
 from collections.abc import Iterable
 from pathlib import Path
 
-from cm_dashboard.config import PROJECT_ROOT
-
-MIGRATIONS_PATH = PROJECT_ROOT / "migrations"
+MIGRATIONS_PATH = Path(__file__).resolve().parent / "migrations"
 
 
 def connect_database(database_path: str | Path) -> sqlite3.Connection:

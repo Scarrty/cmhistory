@@ -24,12 +24,12 @@ def _patch_python314_typing_for_pydantic() -> None:
     if "prefer_fwd_module" in inspect.signature(original_eval_type).parameters:
         return
 
-    def patched_eval_type(*args, **kwargs):
+    def patched_eval_type(*args: typing.Any, **kwargs: typing.Any) -> typing.Any:
         kwargs.pop("prefer_fwd_module", None)
         return original_eval_type(*args, **kwargs)
 
-    patched_eval_type._cm_dashboard_patched = True
-    typing._eval_type = patched_eval_type
+    patched_eval_type.__dict__["_cm_dashboard_patched"] = True
+    typing.__dict__["_eval_type"] = patched_eval_type
 
 
 _patch_python314_typing_for_pydantic()
@@ -38,6 +38,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.base import RequestResponseEndpoint
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from cm_dashboard.config import load_settings
@@ -145,7 +146,9 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(WEB_DIR / "static")), name="static")
 
     @app.middleware("http")
-    async def security_headers(request: Request, call_next):
+    async def security_headers(
+        request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
@@ -161,7 +164,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
         return response
 
     @app.get("/", response_class=HTMLResponse)
-    def home(request: Request):
+    def home(request: Request) -> Response:
         filters = _filters_from_request(request)
         with _database_connection(app.state.database_path) as connection:
             totals = period_totals(connection, filters)
@@ -180,7 +183,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
         )
 
     @app.get("/imports", response_class=HTMLResponse)
-    def imports(request: Request):
+    def imports(request: Request) -> Response:
         file_page = _validated_positive_int(
             "file_page", request.query_params.get("file_page"), default=1
         )
@@ -240,7 +243,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
         )
 
     @app.get("/shipments", response_class=HTMLResponse)
-    def shipments(request: Request):
+    def shipments(request: Request) -> Response:
         filters = _filters_from_request(request)
         page = _validated_positive_int("page", request.query_params.get("page"), default=1)
         with _database_connection(app.state.database_path) as connection:
@@ -265,7 +268,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
         )
 
     @app.get("/articles", response_class=HTMLResponse)
-    def articles(request: Request):
+    def articles(request: Request) -> Response:
         filters = _filters_from_request(request)
         page = _validated_positive_int("page", request.query_params.get("page"), default=1)
         with _database_connection(app.state.database_path) as connection:
@@ -290,7 +293,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
         )
 
     @app.get("/products/{product_id}", response_class=HTMLResponse)
-    def product_detail(request: Request, product_id: str):
+    def product_detail(request: Request, product_id: str) -> Response:
         page = _validated_positive_int("page", request.query_params.get("page"), default=1)
         with _database_connection(app.state.database_path) as connection:
             product = connection.execute(
@@ -333,7 +336,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
         )
 
     @app.get("/reports/period.csv")
-    def period_report(request: Request):
+    def period_report(request: Request) -> Response:
         filters = _filters_from_request(request)
         with _database_connection(app.state.database_path) as connection:
             body = _csv_body(period_report_rows(connection, filters))
@@ -349,17 +352,22 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
         order_id: str,
         direction: str | None = None,
         date_basis: str = DEFAULT_DATE_BASIS,
-    ):
-        direction = _validated_choice("direction", direction, {"PURCHASED", "SOLD"})
-        date_basis = _validated_choice(
+    ) -> Response:
+        validated_direction = _validated_choice(
+            "direction", direction, {"PURCHASED", "SOLD"}
+        )
+        validated_date_basis = _validated_choice(
             "date_basis",
             date_basis,
             {"PURCHASEDATE", "PAYMENTDATE"},
             default=DEFAULT_DATE_BASIS,
         )
+        assert validated_date_basis is not None
         with _database_connection(app.state.database_path) as connection:
             try:
-                shipment = fetch_shipment_detail(connection, order_id, direction=direction)
+                shipment = fetch_shipment_detail(
+                    connection, order_id, direction=validated_direction
+                )
             except AmbiguousShipmentError as exc:
                 raise HTTPException(status_code=409, detail=str(exc)) from exc
             if shipment is None:
@@ -368,7 +376,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
             articles = fetch_shipment_articles(
                 connection,
                 shipment["shipment_id"],
-                date_basis=date_basis,
+                date_basis=validated_date_basis,
             )
         return templates.TemplateResponse(
             request,
@@ -379,7 +387,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
                 "shipment": shipment,
                 "events": events,
                 "articles": articles,
-                "date_basis": date_basis,
+                "date_basis": validated_date_basis,
             },
         )
 
@@ -536,7 +544,11 @@ def _validated_decimal(name: str, value: str | None) -> float | None:
     return float(parsed)
 
 
-def _validate_range(name: str, minimum, maximum) -> None:
+def _validate_range(
+    name: str,
+    minimum: int | float | None,
+    maximum: int | float | None,
+) -> None:
     if minimum is not None and maximum is not None and minimum > maximum:
         raise HTTPException(
             status_code=422, detail=f"min_{name} darf max_{name} nicht ueberschreiten"
@@ -548,7 +560,9 @@ def _query_text(request: Request, name: str) -> str | None:
     return value.strip() or None if value else None
 
 
-def _pagination_context(request: Request, pagination: Pagination) -> dict:
+def _pagination_context(
+    request: Request, pagination: Pagination
+) -> dict[str, object | None]:
     previous_url, next_url = _pagination_urls(request, pagination, parameter="page")
     return {
         "pagination": pagination,
@@ -581,7 +595,7 @@ def _page_url(request: Request, page: int, *, parameter: str) -> str:
     return f"{request.url.path}?{encoded}" if encoded else request.url.path
 
 
-def _mask_text(value) -> str:
+def _mask_text(value: object | None) -> str:
     text = "" if value is None else str(value)
     if len(text) <= 1:
         return "*" if text else ""
@@ -590,7 +604,7 @@ def _mask_text(value) -> str:
     return f"{text[0]}***{text[-1]}"
 
 
-def _csv_body(rows: list[dict]) -> str:
+def _csv_body(rows: list[dict[str, typing.Any]]) -> str:
     buffer = io.StringIO()
     writer = csv.DictWriter(
         buffer,

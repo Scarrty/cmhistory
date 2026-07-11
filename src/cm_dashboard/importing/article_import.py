@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
+from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -225,14 +227,14 @@ def _required_int(value: Any, column: str) -> int:
     return normalized
 
 
-def _required_decimal(value: Any, column: str):
+def _required_decimal(value: Any, column: str) -> Decimal:
     normalized = normalize_decimal(value)
     if normalized is None:
         raise ValueError(f"Missing required decimal column: {column}")
     return normalized
 
 
-def _required_datetime(value: Any, column: str):
+def _required_datetime(value: Any, column: str) -> datetime:
     normalized = normalize_datetime(value)
     if normalized is None:
         raise ValueError(f"Missing required datetime column: {column}")
