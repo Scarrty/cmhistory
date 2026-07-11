@@ -35,7 +35,45 @@ def test_import_status_page_shows_import_files_and_issues(tmp_path) -> None:
 
     assert response.status_code == 200
     assert source_path.name in response.text
-    assert "PAYMENTDATE" in response.text
+    assert "Zahlungsdatum" in response.text
     assert "42" in response.text
     assert "example_warning" in response.text
     assert "Example warning" in response.text
+
+
+def test_import_status_page_paginates_files_and_issues_independently(tmp_path) -> None:
+    database_path = tmp_path / "cardmarket.db"
+    connection = create_database(database_path)
+    connection.executemany(
+        """
+        INSERT INTO import_files(
+            original_path, file_name, file_extension, direction, entity, date_basis,
+            period_start, period_end, import_status, normalization_version
+        )
+        VALUES (?, ?, '.CSV', 'SOLD', 'ARTICLES', 'PAYMENTDATE',
+                '2026-08-01', '2026-08-31', 'imported', 2)
+        """,
+        [(f"source-{index}", f"file-{index:03d}.CSV") for index in range(105)],
+    )
+    connection.executemany(
+        """
+        INSERT INTO import_issues(severity, code, message)
+        VALUES ('warning', ?, ?)
+        """,
+        [(f"issue-{index:03d}", f"Issue {index:03d}") for index in range(105)],
+    )
+    connection.commit()
+    connection.close()
+    client = TestClient(create_app(database_path=database_path))
+
+    first_page = client.get("/imports")
+    second_page = client.get("/imports?file_page=2&issue_page=2")
+
+    assert first_page.status_code == 200
+    assert "105 Dateien" in first_page.text
+    assert "105 Eintr&auml;ge" in first_page.text
+    assert 'href="/imports?file_page=2"' in first_page.text
+    assert 'href="/imports?issue_page=2"' in first_page.text
+    assert second_page.status_code == 200
+    assert "file-000.CSV" in second_page.text
+    assert "issue-000" in second_page.text

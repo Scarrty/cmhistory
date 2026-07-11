@@ -15,6 +15,9 @@ def test_web_app_starts_and_serves_base_route(tmp_path) -> None:
     assert response.status_code == 200
     assert "Cardmarket History" in response.text
     assert "Dashboard" in response.text
+    assert '<html lang="de">' in response.text
+    assert '<a class="skip-link" href="#main-content">Zum Inhalt</a>' in response.text
+    assert 'id="main-content" tabindex="-1"' in response.text
 
 
 def test_web_app_serves_static_css(tmp_path) -> None:
@@ -24,6 +27,7 @@ def test_web_app_serves_static_css(tmp_path) -> None:
 
     assert response.status_code == 200
     assert "font-family" in response.text
+    assert response.headers["cache-control"] == "no-cache"
 
 
 def test_web_app_rejects_invalid_filter_values(tmp_path) -> None:
@@ -35,6 +39,8 @@ def test_web_app_rejects_invalid_filter_values(tmp_path) -> None:
     assert client.get("/?start_date=2026-08-02&end_date=2026-08-01").status_code == 422
     assert client.get("/articles?page=0").status_code == 422
     assert client.get("/shipments?page=not-a-number").status_code == 422
+    assert client.get("/imports?file_page=0").status_code == 422
+    assert client.get("/imports?issue_page=not-a-number").status_code == 422
     assert client.get("/articles?min_amount=NaN").status_code == 422
     assert client.get("/articles?min_amount=10&max_amount=9").status_code == 422
     assert client.get("/articles?min_quantity=1.5").status_code == 422
@@ -55,8 +61,8 @@ def test_article_page_retains_advanced_filter_values(tmp_path) -> None:
     assert 'name="currency" value="EUR"' in response.text
     assert 'name="min_amount" type="number" step="0.01" value="1.25"' in response.text
     assert 'name="max_quantity" type="number" min="0" step="1" value="4"' in response.text
-    assert '<option value="imported" selected>imported</option>' in response.text
-    assert '<option value="linked" selected>Linked</option>' in response.text
+    assert '<option value="imported" selected>Importiert</option>' in response.text
+    assert '<option value="linked" selected>Verkn&uuml;pft</option>' in response.text
 
 
 def test_article_pages_expose_all_filtered_rows(tmp_path) -> None:
@@ -81,11 +87,11 @@ def test_article_pages_expose_all_filtered_rows(tmp_path) -> None:
     second_page = client.get("/articles?direction=SOLD&page=2")
 
     assert first_page.status_code == 200
-    assert "1&ndash;100 of 105" in first_page.text
+    assert "1&ndash;100 von 105" in first_page.text
     assert 'href="/articles?direction=SOLD&amp;page=2"' in first_page.text
     assert second_page.status_code == 200
-    assert "101&ndash;105 of 105" in second_page.text
-    assert "Page 2 of 2" in second_page.text
+    assert "101&ndash;105 von 105" in second_page.text
+    assert "Seite 2 von 2" in second_page.text
     assert "order-0000" in second_page.text
 
 

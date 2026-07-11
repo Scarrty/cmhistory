@@ -9,50 +9,50 @@
     <form class="filter-row" method="get" action="/">
       {% include "_common_filters.html" %}
       <div class="field">
-        <label for="order_id">Order</label>
+        <label for="order_id">Bestellung</label>
         <input id="order_id" name="order_id" value="{{ filters.order_id or '' }}">
       </div>
       <div class="field">
-        <label for="product_text">Article</label>
+        <label for="product_text">Artikel</label>
         <input id="product_text" name="product_text" value="{{ filters.product_text or '' }}">
       </div>
       <div class="field">
-        <label for="product_id">Product ID</label>
+        <label for="product_id">Produkt-ID</label>
         <input id="product_id" name="product_id" value="{{ filters.product_id or '' }}">
       </div>
-      <button type="submit">Apply</button>
+      <button type="submit">Anwenden</button>
       {% include "_article_advanced_filters.html" %}
     </form>
   </section>
 
-  <section class="kpi-grid" aria-label="Period totals">
+  <section class="kpi-grid" aria-label="Summen im Zeitraum">
     <div class="kpi">
-      <div class="kpi-label">Article lines</div>
+      <div class="kpi-label">Artikelpositionen</div>
       <div class="kpi-value">{{ totals.article_line_count }}</div>
     </div>
     <div class="kpi">
-      <div class="kpi-label">Shipments</div>
+      <div class="kpi-label">Sendungen</div>
       <div class="kpi-value">{{ totals.shipment_count }}</div>
     </div>
     <div class="kpi">
-      <div class="kpi-label">Purchases</div>
+      <div class="kpi-label">K&auml;ufe</div>
       <div class="kpi-value">{{ "%.2f"|format(totals.purchase_total) }}</div>
     </div>
     <div class="kpi">
-      <div class="kpi-label">Sales</div>
+      <div class="kpi-label">Verk&auml;ufe</div>
       <div class="kpi-value">{{ "%.2f"|format(totals.sales_total) }}</div>
     </div>
   </section>
 
   <section class="panel">
     <div class="section-header">
-      <h2>Monthly totals</h2>
-      <span class="muted">{{ monthly|length }} rows</span>
+      <h2>Monatssummen</h2>
+      <span class="muted">{{ monthly|length }} Eintr&auml;ge</span>
     </div>
-    <div class="chart" role="img" aria-label="Monthly purchase and sales totals">
+    <div class="chart" role="img" aria-label="Monatliche Kauf- und Verkaufssummen">
       {% for row in monthly %}
       <div class="chart-row">
-        <span>{{ row.month }} · {{ row.direction }}</span>
+        <span>{{ row.month }} &middot; {{ row.direction|direction_label }}</span>
         <div class="chart-track">
           <div
             class="chart-bar {{ row.direction|lower }}"
@@ -64,32 +64,32 @@
         <strong>{{ "%.2f"|format(row.total) }}</strong>
       </div>
       {% else %}
-      <p class="muted">No rows</p>
+      <p class="muted">Keine Daten</p>
       {% endfor %}
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap" role="region" aria-label="Monatssummen" tabindex="0">
       <table>
         <thead>
           <tr>
-            <th>Month</th>
-            <th>Direction</th>
-            <th>Article lines</th>
-            <th>Shipments</th>
-            <th>Total</th>
+            <th>Monat</th>
+            <th>Richtung</th>
+            <th>Artikelpositionen</th>
+            <th>Sendungen</th>
+            <th>Summe</th>
           </tr>
         </thead>
         <tbody>
           {% for row in monthly %}
           <tr>
             <td>{{ row.month }}</td>
-            <td>{{ row.direction }}</td>
+            <td>{{ row.direction|direction_label }}</td>
             <td>{{ row.article_line_count }}</td>
             <td>{{ row.shipment_count }}</td>
             <td>{{ "%.2f"|format(row.total) }}</td>
           </tr>
           {% else %}
           <tr>
-            <td colspan="5" class="muted">No rows</td>
+            <td colspan="5" class="muted">Keine Daten</td>
           </tr>
           {% endfor %}
         </tbody>

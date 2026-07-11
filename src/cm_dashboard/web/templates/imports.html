@@ -4,19 +4,19 @@
 <div class="stack">
   <section class="panel">
     <div class="section-header">
-      <h1>Imports</h1>
-      <span class="muted">{{ files|length }} files</span>
+      <h1>Importe</h1>
+      <span class="muted">{{ file_pagination.total_count }} Dateien</span>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap" role="region" aria-label="Importdateien" tabindex="0">
       <table>
         <thead>
           <tr>
-            <th>File</th>
-            <th>Direction</th>
-            <th>Type</th>
-            <th>Basis</th>
-            <th>Period</th>
-            <th>Rows</th>
+            <th>Datei</th>
+            <th>Richtung</th>
+            <th>Typ</th>
+            <th>Datumsbasis</th>
+            <th>Zeitraum</th>
+            <th>Zeilen</th>
             <th>Status</th>
           </tr>
         </thead>
@@ -24,43 +24,46 @@
           {% for file in files %}
           <tr>
             <td>{{ file.file_name }}</td>
-            <td>{{ file.direction }}</td>
-            <td>{{ file.entity }}</td>
-            <td>{{ file.date_basis }}</td>
+            <td>{{ file.direction|direction_label }}</td>
+            <td>{{ file.entity|entity_label }}</td>
+            <td>{{ file.date_basis|date_basis_label }}</td>
             <td>{{ file.period_start }} - {{ file.period_end }}</td>
             <td>{{ file.row_count }}</td>
-            <td>{{ file.import_status }}</td>
+            <td>{{ file.import_status|status_label }}</td>
           </tr>
           {% else %}
           <tr>
-            <td colspan="7" class="muted">No imports</td>
+            <td colspan="7" class="muted">Keine Importe</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+    {% with pagination=file_pagination, previous_url=file_previous_url, next_url=file_next_url %}
+      {% include "_pagination.html" %}
+    {% endwith %}
   </section>
 
   <section class="panel">
     <div class="section-header">
-      <h2>Issues</h2>
-      <span class="muted">{{ issues|length }} entries</span>
+      <h2>Validierungshinweise</h2>
+      <span class="muted">{{ issue_pagination.total_count }} Eintr&auml;ge</span>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap" role="region" aria-label="Validierungshinweise" tabindex="0">
       <table>
         <thead>
           <tr>
-            <th>Severity</th>
+            <th>Stufe</th>
             <th>Code</th>
-            <th>File</th>
-            <th>Row</th>
-            <th>Message</th>
+            <th>Datei</th>
+            <th>Zeile</th>
+            <th>Meldung</th>
           </tr>
         </thead>
         <tbody>
           {% for issue in issues %}
           <tr>
-            <td><span class="badge {{ issue.severity }}">{{ issue.severity }}</span></td>
+            <td><span class="badge {{ issue.severity }}">{{ issue.severity|severity_label }}</span></td>
             <td>{{ issue.code }}</td>
             <td>{{ issue.file_name or "" }}</td>
             <td>{{ issue.source_row_number or "" }}</td>
@@ -68,12 +71,15 @@
           </tr>
           {% else %}
           <tr>
-            <td colspan="5" class="muted">No issues</td>
+            <td colspan="5" class="muted">Keine Hinweise</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+    {% with pagination=issue_pagination, previous_url=issue_previous_url, next_url=issue_next_url %}
+      {% include "_pagination.html" %}
+    {% endwith %}
   </section>
 </div>
 {% endblock %}

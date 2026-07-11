@@ -47,13 +47,13 @@ def test_product_detail_page_shows_labels_totals_and_article_lines(tmp_path) -> 
     response = client.get(f"/products/{product['product_id']}")
 
     assert response.status_code == 200
-    assert f"Product {product['product_id']}" in response.text
-    assert f"{product['label_count']} observed labels" in response.text
+    assert f"Produkt {product['product_id']}" in response.text
+    assert f"{product['label_count']} beobachtete Bezeichnungen" in response.text
     for label in labels:
         assert label in response.text
-    assert "Article lines" in response.text
-    assert "Purchases" in response.text
-    assert "Sales" in response.text
+    assert "Artikelpositionen" in response.text
+    assert "K&auml;ufe" in response.text
+    assert "Verk&auml;ufe" in response.text
     for order_id, direction in orders:
         assert (
             f'href="/shipments/{order_id}?direction={direction}&amp;date_basis=PAYMENTDATE"'

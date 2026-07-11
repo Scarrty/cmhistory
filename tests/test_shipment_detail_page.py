@@ -29,8 +29,8 @@ def test_shipment_detail_page_shows_linked_articles_and_source_rows(tmp_path) ->
     response = client.get(f"/shipments/{sample['order_id']}")
 
     assert response.status_code == 200
-    assert f"Shipment {sample['order_id']}" in response.text
-    assert "PAYMENTDATE" in response.text
+    assert f"Sendung {sample['order_id']}" in response.text
+    assert "Zahlungsdatum" in response.text
     assert sample["article_name_snapshot"] in response.text
     assert sample["file_name"] in response.text
     assert _mask_text(sample["username"]) in response.text

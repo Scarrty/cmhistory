@@ -1,23 +1,24 @@
 <!doctype html>
-<html lang="en">
+<html lang="de">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ page_title }} | Cardmarket History</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}">
-    <script src="{{ url_for('static', path='app.js') }}" defer></script>
+    <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}?v={{ static_version }}">
+    <script src="{{ url_for('static', path='app.js') }}?v={{ static_version }}" defer></script>
   </head>
   <body>
+    <a class="skip-link" href="#main-content">Zum Inhalt</a>
     <header class="topbar">
       <a class="brand" href="/">Cardmarket History</a>
-      <nav class="nav" aria-label="Primary">
+      <nav class="nav" aria-label="Hauptnavigation">
         <a href="/" class="{% if active_nav == 'dashboard' %}active{% endif %}">Dashboard</a>
-        <a href="/imports" class="{% if active_nav == 'imports' %}active{% endif %}">Imports</a>
-        <a href="/shipments" class="{% if active_nav == 'shipments' %}active{% endif %}">Shipments</a>
-        <a href="/articles" class="{% if active_nav == 'articles' %}active{% endif %}">Articles</a>
+        <a href="/imports" class="{% if active_nav == 'imports' %}active{% endif %}">Importe</a>
+        <a href="/shipments" class="{% if active_nav == 'shipments' %}active{% endif %}">Sendungen</a>
+        <a href="/articles" class="{% if active_nav == 'articles' %}active{% endif %}">Artikel</a>
       </nav>
     </header>
-    <main class="page">
+    <main class="page" id="main-content" tabindex="-1">
       {% block content %}
       <section class="panel">
         <h1>{{ page_title }}</h1>

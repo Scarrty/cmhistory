@@ -197,7 +197,7 @@ def fetch_shipment_detail(
     ).fetchall()
     if len(rows) > 1:
         raise AmbiguousShipmentError(
-            f"Order ID {order_id} exists in multiple directions; direction is required"
+            f"Order-ID {order_id} existiert in mehreren Richtungen; die Richtung ist erforderlich"
         )
     return _row_dict(rows[0]) if rows else None
 

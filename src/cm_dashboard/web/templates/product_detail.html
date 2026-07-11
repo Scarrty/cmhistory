@@ -4,24 +4,24 @@
 <div class="stack">
   <section class="panel">
     <div class="section-header">
-      <h1>Product {{ product.product_id }}</h1>
-      <span class="muted">{{ labels|length }} observed labels</span>
+      <h1>Produkt {{ product.product_id }}</h1>
+      <span class="muted">{{ labels|length }} beobachtete Bezeichnungen</span>
     </div>
     <div class="kpi-grid">
       <div class="kpi">
-        <div class="kpi-label">Article lines</div>
+        <div class="kpi-label">Artikelpositionen</div>
         <div class="kpi-value">{{ totals.article_line_count }}</div>
       </div>
       <div class="kpi">
-        <div class="kpi-label">Shipments</div>
+        <div class="kpi-label">Sendungen</div>
         <div class="kpi-value">{{ totals.shipment_count }}</div>
       </div>
       <div class="kpi">
-        <div class="kpi-label">Purchases</div>
+        <div class="kpi-label">K&auml;ufe</div>
         <div class="kpi-value">{{ "%.2f"|format(totals.purchase_total) }}</div>
       </div>
       <div class="kpi">
-        <div class="kpi-label">Sales</div>
+        <div class="kpi-label">Verk&auml;ufe</div>
         <div class="kpi-value">{{ "%.2f"|format(totals.sales_total) }}</div>
       </div>
     </div>
@@ -29,34 +29,34 @@
 
   <section class="panel">
     <div class="section-header">
-      <h2>Observed labels</h2>
+      <h2>Beobachtete Bezeichnungen</h2>
     </div>
     <div class="label-list">
       {% for label in labels %}
       <span class="badge info">{{ label.label }}</span>
       {% else %}
-      <span class="muted">No rows</span>
+      <span class="muted">Keine Daten</span>
       {% endfor %}
     </div>
   </section>
 
   <section class="panel">
     <div class="section-header">
-      <h2>Article lines</h2>
-      <span class="muted">{{ pagination.total_count }} rows</span>
+      <h2>Artikelpositionen</h2>
+      <span class="muted">{{ pagination.total_count }} Treffer</span>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap" role="region" aria-label="Artikelpositionen des Produkts" tabindex="0">
       <table>
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Order</th>
-            <th>Direction</th>
-            <th>Article</th>
-            <th>Localized label</th>
-            <th>Expansion</th>
-            <th>Qty</th>
-            <th>Total</th>
+            <th>Datum</th>
+            <th>Bestellung</th>
+            <th>Richtung</th>
+            <th>Artikel</th>
+            <th>Lokalisierte Bezeichnung</th>
+            <th>Set</th>
+            <th>Menge</th>
+            <th>Summe</th>
           </tr>
         </thead>
         <tbody>
@@ -64,7 +64,7 @@
           <tr>
             <td>{{ article.event_datetime }}</td>
             <td><a href="/shipments/{{ article.order_id }}?direction={{ article.direction }}&amp;date_basis={{ article.date_basis }}">{{ article.order_id }}</a></td>
-            <td>{{ article.direction }}</td>
+            <td>{{ article.direction|direction_label }}</td>
             <td>{{ article.article_name_snapshot }}</td>
             <td>{{ article.localized_product_name or "" }}</td>
             <td>{{ article.expansion_name_snapshot or "" }}</td>
@@ -73,7 +73,7 @@
           </tr>
           {% else %}
           <tr>
-            <td colspan="8" class="muted">No rows</td>
+            <td colspan="8" class="muted">Keine Treffer</td>
           </tr>
           {% endfor %}
         </tbody>

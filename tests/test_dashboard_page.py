@@ -18,12 +18,12 @@ def test_dashboard_page_renders_filtered_kpis_and_monthly_chart(tmp_path) -> Non
     response = client.get("/?start_date=2016-06-01&end_date=2016-06-30")
 
     assert response.status_code == 200
-    assert "Article lines" in response.text
-    assert "Shipments" in response.text
+    assert "Artikelpositionen" in response.text
+    assert "Sendungen" in response.text
     assert "2016-06" in response.text
     assert "data-chart-bar" in response.text
-    assert "PURCHASED" in response.text
-    assert '<option value="PAYMENTDATE" selected>Payment date</option>' in response.text
+    assert "Gekauft" in response.text
+    assert '<option value="PAYMENTDATE" selected>Zahlungsdatum</option>' in response.text
 
 
 def _metadata(path):

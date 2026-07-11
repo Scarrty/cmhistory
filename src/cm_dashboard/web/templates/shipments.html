@@ -4,24 +4,24 @@
 <div class="stack">
   <section class="panel">
     <div class="section-header">
-      <h1>Shipments</h1>
-      <span class="muted">{{ pagination.total_count }} rows</span>
+      <h1>Sendungen</h1>
+      <span class="muted">{{ pagination.total_count }} Treffer</span>
     </div>
     <form class="filter-row" method="get" action="/shipments">
       {% include "_common_filters.html" %}
       <div class="field">
-        <label for="order_id">Order</label>
+        <label for="order_id">Bestellung</label>
         <input id="order_id" name="order_id" value="{{ filters.order_id or '' }}">
       </div>
       <div class="field">
-        <label for="username">Username</label>
+        <label for="username">Benutzername</label>
         <input id="username" name="username" value="{{ filters.username or '' }}">
       </div>
       <div class="field">
-        <label for="country">Country</label>
+        <label for="country">Land</label>
         <input id="country" name="country" value="{{ filters.country or '' }}">
       </div>
-      <button type="submit">Apply</button>
+      <button type="submit">Anwenden</button>
       <details
         class="filter-details"
         {% if filters.counterparty_name or filters.currency or filters.min_amount is not none
@@ -29,51 +29,51 @@
               or filters.max_quantity is not none or filters.import_file
               or filters.import_status or filters.link_status %}open{% endif %}
       >
-        <summary>More filters</summary>
+        <summary>Weitere Filter</summary>
         <div class="filter-row filter-details-fields">
           <div class="field">
             <label for="counterparty_name">Name</label>
             <input id="counterparty_name" name="counterparty_name" value="{{ filters.counterparty_name or '' }}">
           </div>
           <div class="field compact-field">
-            <label for="currency">Currency</label>
+            <label for="currency">W&auml;hrung</label>
             <input id="currency" name="currency" value="{{ filters.currency or '' }}">
           </div>
           <div class="field compact-field">
-            <label for="min_amount">Amount from</label>
+            <label for="min_amount">Betrag von</label>
             <input id="min_amount" name="min_amount" type="number" step="0.01" value="{{ filters.min_amount if filters.min_amount is not none else '' }}">
           </div>
           <div class="field compact-field">
-            <label for="max_amount">Amount to</label>
+            <label for="max_amount">Betrag bis</label>
             <input id="max_amount" name="max_amount" type="number" step="0.01" value="{{ filters.max_amount if filters.max_amount is not none else '' }}">
           </div>
           <div class="field compact-field">
-            <label for="min_quantity">Quantity from</label>
+            <label for="min_quantity">Menge von</label>
             <input id="min_quantity" name="min_quantity" type="number" min="0" step="1" value="{{ filters.min_quantity if filters.min_quantity is not none else '' }}">
           </div>
           <div class="field compact-field">
-            <label for="max_quantity">Quantity to</label>
+            <label for="max_quantity">Menge bis</label>
             <input id="max_quantity" name="max_quantity" type="number" min="0" step="1" value="{{ filters.max_quantity if filters.max_quantity is not none else '' }}">
           </div>
           <div class="field">
-            <label for="import_file">Import file</label>
+            <label for="import_file">Importdatei</label>
             <input id="import_file" name="import_file" value="{{ filters.import_file or '' }}">
           </div>
           <div class="field">
-            <label for="import_status">Import status</label>
+            <label for="import_status">Importstatus</label>
             <select id="import_status" name="import_status">
-              <option value="" {% if not filters.import_status %}selected{% endif %}>Any</option>
+              <option value="" {% if not filters.import_status %}selected{% endif %}>Alle</option>
               {% for status in ['imported', 'failed', 'conflict', 'processing', 'pending'] %}
-              <option value="{{ status }}" {% if filters.import_status == status %}selected{% endif %}>{{ status }}</option>
+              <option value="{{ status }}" {% if filters.import_status == status %}selected{% endif %}>{{ status|status_label }}</option>
               {% endfor %}
             </select>
           </div>
           <div class="field">
-            <label for="link_status">Link status</label>
+            <label for="link_status">Verkn&uuml;pfung</label>
             <select id="link_status" name="link_status">
-              <option value="" {% if not filters.link_status %}selected{% endif %}>Any</option>
-              <option value="linked" {% if filters.link_status == 'linked' %}selected{% endif %}>Linked</option>
-              <option value="unlinked" {% if filters.link_status == 'unlinked' %}selected{% endif %}>Unlinked</option>
+              <option value="" {% if not filters.link_status %}selected{% endif %}>Alle</option>
+              <option value="linked" {% if filters.link_status == 'linked' %}selected{% endif %}>Verkn&uuml;pft</option>
+              <option value="unlinked" {% if filters.link_status == 'unlinked' %}selected{% endif %}>Nicht verkn&uuml;pft</option>
             </select>
           </div>
         </div>
@@ -82,27 +82,27 @@
   </section>
 
   <section class="panel">
-    <div class="table-wrap">
+    <div class="table-wrap" role="region" aria-label="Sendungen" tabindex="0">
       <table>
         <thead>
           <tr>
-            <th>Order</th>
-            <th>Direction</th>
-            <th>Username</th>
+            <th>Bestellung</th>
+            <th>Richtung</th>
+            <th>Benutzername</th>
             <th>Name</th>
-            <th>Country</th>
-            <th>Articles</th>
-            <th>Merchandise</th>
-            <th>Shipping</th>
-            <th>Total</th>
-            <th>Currency</th>
+            <th>Land</th>
+            <th>Artikel</th>
+            <th>Warenwert</th>
+            <th>Versand</th>
+            <th>Summe</th>
+            <th>W&auml;hrung</th>
           </tr>
         </thead>
         <tbody>
           {% for shipment in shipments %}
           <tr>
             <td><a href="/shipments/{{ shipment.order_id }}?direction={{ shipment.direction }}&amp;date_basis={{ filters.date_basis }}">{{ shipment.order_id }}</a></td>
-            <td>{{ shipment.direction }}</td>
+            <td>{{ shipment.direction|direction_label }}</td>
             <td>{{ shipment.username|mask_text }}</td>
             <td>{{ shipment.counterparty_name|mask_text }}</td>
             <td>{{ shipment.country or "" }}</td>
@@ -114,7 +114,7 @@
           </tr>
           {% else %}
           <tr>
-            <td colspan="10" class="muted">No rows</td>
+            <td colspan="10" class="muted">Keine Treffer</td>
           </tr>
           {% endfor %}
         </tbody>

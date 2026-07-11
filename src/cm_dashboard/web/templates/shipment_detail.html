@@ -4,50 +4,62 @@
 <div class="stack">
   <section class="panel">
     <div class="section-header">
-      <h1>Shipment {{ shipment.order_id }}</h1>
-      <span class="muted">{{ shipment.direction }} · {{ date_basis }}</span>
+      <h1>Sendung {{ shipment.order_id }}</h1>
+      <span class="muted">{{ shipment.direction|direction_label }} &middot; {{ date_basis|date_basis_label }}</span>
     </div>
     <div class="kpi-grid">
       <div class="kpi">
-        <div class="kpi-label">Username</div>
+        <div class="kpi-label">Benutzername</div>
         <div class="kpi-value">{{ shipment.username|mask_text }}</div>
       </div>
       <div class="kpi">
-        <div class="kpi-label">Country</div>
+        <div class="kpi-label">Land</div>
         <div class="kpi-value">{{ shipment.country or "" }}</div>
       </div>
       <div class="kpi">
-        <div class="kpi-label">Articles</div>
+        <div class="kpi-label">Artikel</div>
         <div class="kpi-value">{{ shipment.article_count or "" }}</div>
       </div>
       <div class="kpi">
-        <div class="kpi-label">Total</div>
+        <div class="kpi-label">Gesamtsumme</div>
         <div class="kpi-value">{{ shipment.total_value or "" }} {{ shipment.currency or "" }}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Warenwert</div>
+        <div class="kpi-value">{{ shipment.merchandise_value or "" }} {{ shipment.currency or "" }}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Versand</div>
+        <div class="kpi-value">{{ shipment.shipment_costs or "" }} {{ shipment.currency or "" }}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">{% if shipment.direction == 'PURCHASED' %}Treuhandgeb&uuml;hr{% else %}Provision{% endif %}</div>
+        <div class="kpi-value">{{ shipment.trustee_service_fee or shipment.commission or "" }} {{ shipment.currency or "" }}</div>
       </div>
     </div>
   </section>
 
   <section class="panel">
     <div class="section-header">
-      <h2>Events</h2>
+      <h2>Ereignisse</h2>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap" role="region" aria-label="Ereignisse der Sendung" tabindex="0">
       <table>
         <thead>
           <tr>
-            <th>Type</th>
-            <th>Date</th>
+            <th>Typ</th>
+            <th>Datum</th>
           </tr>
         </thead>
         <tbody>
           {% for event in events %}
           <tr>
-            <td>{{ event.event_type }}</td>
+            <td>{{ event.event_type|date_basis_label }}</td>
             <td>{{ event.event_datetime }}</td>
           </tr>
           {% else %}
           <tr>
-            <td colspan="2" class="muted">No rows</td>
+            <td colspan="2" class="muted">Keine Daten</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -57,20 +69,20 @@
 
   <section class="panel">
     <div class="section-header">
-      <h2>Articles</h2>
-      <span class="muted">{{ articles|length }} lines</span>
+      <h2>Artikelpositionen</h2>
+      <span class="muted">{{ articles|length }} Positionen</span>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap" role="region" aria-label="Artikelpositionen der Sendung" tabindex="0">
       <table>
         <thead>
           <tr>
-            <th>Article</th>
-            <th>Product</th>
-            <th>Expansion</th>
-            <th>Category</th>
-            <th>Qty</th>
-            <th>Total</th>
-            <th>Source</th>
+            <th>Artikel</th>
+            <th>Produkt</th>
+            <th>Set</th>
+            <th>Kategorie</th>
+            <th>Menge</th>
+            <th>Summe</th>
+            <th>Quelle</th>
           </tr>
         </thead>
         <tbody>
@@ -86,7 +98,7 @@
           </tr>
           {% else %}
           <tr>
-            <td colspan="7" class="muted">No rows</td>
+            <td colspan="7" class="muted">Keine Daten</td>
           </tr>
           {% endfor %}
         </tbody>

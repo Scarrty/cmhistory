@@ -62,6 +62,9 @@ from cm_dashboard.reporting.queries import (
 WEB_DIR = Path(__file__).resolve().parent
 PAGE_SIZE = 100
 IMPORT_STATUSES = {"pending", "processing", "imported", "failed", "conflict"}
+STATIC_VERSION = max(
+    path.stat().st_mtime_ns for path in (WEB_DIR / "static").iterdir() if path.is_file()
+)
 PERIOD_REPORT_FIELDS = (
     "section",
     "date_basis",
@@ -75,6 +78,31 @@ PERIOD_REPORT_FIELDS = (
 )
 templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
 templates.env.filters["mask_text"] = lambda value: _mask_text(value)
+templates.env.filters["direction_label"] = lambda value: {
+    "PURCHASED": "Gekauft",
+    "SOLD": "Verkauft",
+}.get(value, value)
+templates.env.filters["date_basis_label"] = lambda value: {
+    "PAYMENTDATE": "Zahlungsdatum",
+    "PURCHASEDATE": "Kaufdatum",
+}.get(value, value)
+templates.env.filters["entity_label"] = lambda value: {
+    "ARTICLES": "Artikel",
+    "SHIPMENTS": "Sendungen",
+}.get(value, value)
+templates.env.filters["status_label"] = lambda value: {
+    "pending": "Ausstehend",
+    "processing": "In Verarbeitung",
+    "imported": "Importiert",
+    "failed": "Fehlgeschlagen",
+    "conflict": "Konflikt",
+}.get(value, value)
+templates.env.filters["severity_label"] = lambda value: {
+    "info": "Info",
+    "warning": "Warnung",
+    "error": "Fehler",
+}.get(value, value)
+templates.env.globals["static_version"] = STATIC_VERSION
 
 
 @dataclass(frozen=True)
@@ -126,7 +154,9 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
             "default-src 'self'; object-src 'none'; frame-ancestors 'none'; "
             "base-uri 'self'; form-action 'self'"
         )
-        if not request.url.path.startswith("/static/"):
+        if request.url.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-cache"
+        else:
             response.headers["Cache-Control"] = "no-store"
         return response
 
@@ -151,16 +181,29 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/imports", response_class=HTMLResponse)
     def imports(request: Request):
+        file_page = _validated_positive_int(
+            "file_page", request.query_params.get("file_page"), default=1
+        )
+        issue_page = _validated_positive_int(
+            "issue_page", request.query_params.get("issue_page"), default=1
+        )
         with _database_connection(app.state.database_path) as connection:
+            file_count = int(connection.execute("SELECT COUNT(*) FROM import_files").fetchone()[0])
+            file_pagination = Pagination(file_page, PAGE_SIZE, file_count)
             files = connection.execute(
                 """
                 SELECT import_file_id, file_name, direction, entity, date_basis,
                        period_start, period_end, row_count, import_status
                 FROM import_files
                 ORDER BY import_file_id DESC
-                LIMIT 250
-                """
+                LIMIT ? OFFSET ?
+                """,
+                (file_pagination.page_size, file_pagination.offset),
             ).fetchall()
+            issue_count = int(
+                connection.execute("SELECT COUNT(*) FROM import_issues").fetchone()[0]
+            )
+            issue_pagination = Pagination(issue_page, PAGE_SIZE, issue_count)
             issues = connection.execute(
                 """
                 SELECT import_issues.severity, import_issues.code, import_issues.message,
@@ -169,17 +212,30 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
                 LEFT JOIN import_files
                     ON import_files.import_file_id = import_issues.import_file_id
                 ORDER BY import_issues.import_issue_id DESC
-                LIMIT 250
-                """
+                LIMIT ? OFFSET ?
+                """,
+                (issue_pagination.page_size, issue_pagination.offset),
             ).fetchall()
+        file_previous_url, file_next_url = _pagination_urls(
+            request, file_pagination, parameter="file_page"
+        )
+        issue_previous_url, issue_next_url = _pagination_urls(
+            request, issue_pagination, parameter="issue_page"
+        )
         return templates.TemplateResponse(
             request,
             "imports.html",
             {
-                "page_title": "Imports",
+                "page_title": "Importe",
                 "active_nav": "imports",
                 "files": files,
                 "issues": issues,
+                "file_pagination": file_pagination,
+                "file_previous_url": file_previous_url,
+                "file_next_url": file_next_url,
+                "issue_pagination": issue_pagination,
+                "issue_previous_url": issue_previous_url,
+                "issue_next_url": issue_next_url,
             },
         )
 
@@ -200,7 +256,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
             request,
             "shipments.html",
             {
-                "page_title": "Shipments",
+                "page_title": "Sendungen",
                 "active_nav": "shipments",
                 "filters": filters,
                 "shipments": rows,
@@ -225,7 +281,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
             request,
             "articles.html",
             {
-                "page_title": "Articles",
+                "page_title": "Artikelpositionen",
                 "active_nav": "articles",
                 "filters": filters,
                 "articles": rows,
@@ -242,7 +298,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
                 (product_id,),
             ).fetchone()
             if product is None:
-                raise HTTPException(status_code=404, detail="Product not found")
+                raise HTTPException(status_code=404, detail="Produkt nicht gefunden")
             filters = ReportingFilters(product_id=product_id)
             labels = connection.execute(
                 """
@@ -266,7 +322,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
             request,
             "product_detail.html",
             {
-                "page_title": f"Product {product_id}",
+                "page_title": f"Produkt {product_id}",
                 "active_nav": "articles",
                 "product": product,
                 "labels": labels,
@@ -307,7 +363,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
             except AmbiguousShipmentError as exc:
                 raise HTTPException(status_code=409, detail=str(exc)) from exc
             if shipment is None:
-                raise HTTPException(status_code=404, detail="Shipment not found")
+                raise HTTPException(status_code=404, detail="Sendung nicht gefunden")
             events = fetch_shipment_events(connection, shipment["shipment_id"])
             articles = fetch_shipment_articles(
                 connection,
@@ -318,7 +374,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
             request,
             "shipment_detail.html",
             {
-                "page_title": f"Shipment {order_id}",
+                "page_title": f"Sendung {order_id}",
                 "active_nav": "shipments",
                 "shipment": shipment,
                 "events": events,
@@ -340,7 +396,10 @@ def _database_connection(database_path: str | Path) -> Iterator[sqlite3.Connecti
         if database_requires_rebuild(connection):
             raise HTTPException(
                 status_code=503,
-                detail="Database normalization is outdated; run the rebuild command",
+                detail=(
+                    "Die Datenbanknormalisierung ist veraltet; "
+                    "bitte den Befehl rebuild ausfuehren"
+                ),
             )
         yield connection
     finally:
@@ -351,7 +410,9 @@ def _filters_from_request(request: Request) -> ReportingFilters:
     start_date = _validated_date("start_date", request.query_params.get("start_date"))
     end_date = _validated_date("end_date", request.query_params.get("end_date"))
     if start_date and end_date and end_date < start_date:
-        raise HTTPException(status_code=422, detail="end_date must not be before start_date")
+        raise HTTPException(
+            status_code=422, detail="Das Bis-Datum darf nicht vor dem Von-Datum liegen"
+        )
     min_amount = _validated_decimal("min_amount", request.query_params.get("min_amount"))
     max_amount = _validated_decimal("max_amount", request.query_params.get("max_amount"))
     min_quantity = _validated_nonnegative_int(
@@ -410,7 +471,9 @@ def _validated_date(name: str, value: str | None) -> date | None:
     try:
         return date.fromisoformat(value)
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=f"{name} must be an ISO date") from exc
+        raise HTTPException(
+            status_code=422, detail=f"{name} muss ein ISO-Datum sein"
+        ) from exc
 
 
 def _validated_choice(
@@ -423,7 +486,9 @@ def _validated_choice(
     normalized = value or default
     if normalized is not None and normalized not in allowed:
         choices = ", ".join(sorted(allowed))
-        raise HTTPException(status_code=422, detail=f"{name} must be one of: {choices}")
+        raise HTTPException(
+            status_code=422, detail=f"{name} muss einer dieser Werte sein: {choices}"
+        )
     return normalized
 
 
@@ -433,9 +498,11 @@ def _validated_positive_int(name: str, value: str | None, *, default: int) -> in
     try:
         parsed = int(value)
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=f"{name} must be a positive integer") from exc
+        raise HTTPException(
+            status_code=422, detail=f"{name} muss eine positive Ganzzahl sein"
+        ) from exc
     if parsed <= 0:
-        raise HTTPException(status_code=422, detail=f"{name} must be a positive integer")
+        raise HTTPException(status_code=422, detail=f"{name} muss eine positive Ganzzahl sein")
     return parsed
 
 
@@ -446,10 +513,12 @@ def _validated_nonnegative_int(name: str, value: str | None) -> int | None:
         parsed = int(value)
     except ValueError as exc:
         raise HTTPException(
-            status_code=422, detail=f"{name} must be a non-negative integer"
+            status_code=422, detail=f"{name} muss eine nicht negative Ganzzahl sein"
         ) from exc
     if parsed < 0:
-        raise HTTPException(status_code=422, detail=f"{name} must be a non-negative integer")
+        raise HTTPException(
+            status_code=422, detail=f"{name} muss eine nicht negative Ganzzahl sein"
+        )
     return parsed
 
 
@@ -459,15 +528,19 @@ def _validated_decimal(name: str, value: str | None) -> float | None:
     try:
         parsed = Decimal(value)
     except InvalidOperation as exc:
-        raise HTTPException(status_code=422, detail=f"{name} must be a decimal number") from exc
+        raise HTTPException(
+            status_code=422, detail=f"{name} muss eine Dezimalzahl sein"
+        ) from exc
     if not parsed.is_finite():
-        raise HTTPException(status_code=422, detail=f"{name} must be a finite decimal number")
+        raise HTTPException(status_code=422, detail=f"{name} muss eine endliche Dezimalzahl sein")
     return float(parsed)
 
 
 def _validate_range(name: str, minimum, maximum) -> None:
     if minimum is not None and maximum is not None and minimum > maximum:
-        raise HTTPException(status_code=422, detail=f"min_{name} must not exceed max_{name}")
+        raise HTTPException(
+            status_code=422, detail=f"min_{name} darf max_{name} nicht ueberschreiten"
+        )
 
 
 def _query_text(request: Request, name: str) -> str | None:
@@ -476,23 +549,34 @@ def _query_text(request: Request, name: str) -> str | None:
 
 
 def _pagination_context(request: Request, pagination: Pagination) -> dict:
+    previous_url, next_url = _pagination_urls(request, pagination, parameter="page")
     return {
         "pagination": pagination,
-        "previous_url": (
-            _page_url(request, pagination.page - 1) if pagination.page > 1 else None
-        ),
-        "next_url": (
-            _page_url(request, pagination.page + 1)
-            if pagination.page < pagination.page_count
-            else None
-        ),
+        "previous_url": previous_url,
+        "next_url": next_url,
     }
 
 
-def _page_url(request: Request, page: int) -> str:
-    query = [(key, value) for key, value in request.query_params.items() if key != "page"]
+def _pagination_urls(
+    request: Request, pagination: Pagination, *, parameter: str
+) -> tuple[str | None, str | None]:
+    previous_url = (
+        _page_url(request, pagination.page - 1, parameter=parameter)
+        if pagination.page > 1
+        else None
+    )
+    next_url = (
+        _page_url(request, pagination.page + 1, parameter=parameter)
+        if pagination.page < pagination.page_count
+        else None
+    )
+    return previous_url, next_url
+
+
+def _page_url(request: Request, page: int, *, parameter: str) -> str:
+    query = [(key, value) for key, value in request.query_params.items() if key != parameter]
     if page > 1:
-        query.append(("page", str(page)))
+        query.append((parameter, str(page)))
     encoded = urlencode(query)
     return f"{request.url.path}?{encoded}" if encoded else request.url.path
 
