@@ -105,7 +105,7 @@ Dateifehler und fehlende Shipment-Events auf. Typische Codes:
 - `duplicate_article_source_overlap`: dieselben Geschaeftszeilen liegen in CSV und XLS vor und
   wurden nur einmal normalisiert
 - `shipment_grouping_summary`: Shipment-Header und Fortsetzungszeilen wurden gruppiert
-- `missing_shipment_event`: ein Shipment-Export enthaelt kein verwertbares Eventdatum
+- `missing_shipment_event_date`: ein Shipment-Export enthaelt kein verwertbares Eventdatum
 
 Warnungen sind zu pruefen, aber nicht automatisch Datenverlust. Fehler beim Lesen,
 Normalisieren oder bei geaenderten Quelldateien erfordern eine Korrektur bzw. einen Neuaufbau.

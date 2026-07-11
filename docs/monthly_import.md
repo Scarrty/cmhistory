@@ -79,7 +79,7 @@ Danach `/imports` pruefen. Erwartbare Informations- oder Warnhinweise koennen se
 - `duplicate_article_source_overlap`: parallele CSV/XLS-Quellen wurden dedupliziert
 - `shipment_grouping_summary`: Shipment-Fortsetzungen wurden ihrem Header zugeordnet
 - `missing_period_coverage`: Gegenexport oder Zeitraumabdeckung fehlt
-- `missing_shipment_event`: ein konkretes Shipmentdatum fehlt in der Quelle
+- `missing_shipment_event_date`: ein konkretes Shipmentdatum fehlt in der Quelle
 
 Nicht akzeptieren:
 

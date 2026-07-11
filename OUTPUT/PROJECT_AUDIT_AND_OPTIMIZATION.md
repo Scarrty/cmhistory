@@ -1,6 +1,6 @@
 # Projekt-Audit und Optimierungsbericht
 
-Stand der Bestandsaufnahme: 2026-07-10
+Stand der Bestandsaufnahme: 2026-07-10; Abschlussverifikation: 2026-07-11
 
 ## 1. Projektverstaendnis
 
@@ -21,7 +21,7 @@ Interpretationen. Die private Quelldatenbasis ist nicht Teil des Git-Repositorie
 |---|---|---|
 | Laufzeit | Python 3.12+, lokal aktuell Python 3.14.0rc1 | Kleine, passende Basis; die lokale Vorabversion benoetigt einen Kompatibilitaets-Workaround. |
 | Import | CLI und Module unter `src/cm_dashboard/importing` | Echte Verarbeitung, aber Dateiimporte sind nicht durchgehend atomar und Fehler eines Files stoppen den Ordnerimport. |
-| Persistenz | SQLite, SQL-Migration `migrations/001_init.sql` | Fuer das Volumen ausreichend; einige Constraints weichen vom Fachmodell ab. |
+| Persistenz | SQLite, heute paketierte SQL-Migrationen unter `src/cm_dashboard/migrations` | Fuer das Volumen ausreichend; einige Constraints wichen vor der Korrektur vom Fachmodell ab. |
 | Reporting | Parametrisierte SQL-Abfragen in `reporting/queries.py` | Schnell, aber Datumsbasen werden ohne Auswahl doppelt summiert. |
 | Web | FastAPI, serverseitiges Jinja, wenig JavaScript | Angemessen schlank; keine SPA-Komplexitaet. Verbindungen werden pro Request nicht geschlossen. |
 | Tests | pytest, 84 bestanden, 1 optionaler Full-Source-Test uebersprungen | Gute Modulabdeckung, aber wichtige Integritaetsfehler sind durch einseitige Fixtures nicht abgedeckt. |
@@ -143,7 +143,7 @@ greifen auf echte SQLite-Daten zu.
   `direction + order_id`.
 - Auswirkung: Eine kuenftige gleichlautende Kauf- und Verkaufs-ID ueberschreibt die andere
   Richtung und verknuepft Artikel falsch.
-- Beleg: `migrations/001_init.sql`, `shipment_import.py`, `article_import.py`. Aktuell gibt es
+- Beleg: damaliges `migrations/001_init.sql`, `shipment_import.py`, `article_import.py`. Aktuell gibt es
   noch 0 richtungsuebergreifende Kollisionen, das Risiko ist prospektiv.
 - Loesung: Rueckwaertskompatible SQLite-Migration auf UNIQUE(direction, order_id) und alle
   Lookups/Links richtungssensitiv machen.
@@ -290,5 +290,101 @@ sind wichtiger als Mikrooptimierungen.
 
 ## 8. Abschlussbericht
 
-Dieser Abschnitt wird nach der Umsetzung mit den tatsaechlichen Aenderungen, bewusst
-zurueckgestellten Punkten und finalen Verifikationsergebnissen ergaenzt.
+### 8.1 Projektverstaendnis nach der Umsetzung
+
+Der fachliche Zweck und die lokale Einzelplatzarchitektur bleiben unveraendert. Die Anwendung
+importiert private Cardmarket-Dateiexporte in einen reproduzierbaren SQLite-Arbeitsbestand,
+verknuepft Artikel und Sendungen richtungssensitiv und stellt read-only Auswertungen bereit.
+Die Originaldateien bleiben die kanonische Quelle; die DB kann jederzeit atomar neu aufgebaut
+werden. Es wurden keine Cloud-, API-, Mock- oder Mehrbenutzerkomponenten eingefuehrt.
+
+Der wichtigste fachliche Datenfluss ist jetzt durchgehend abgesichert:
+
+1. 447 Dateien werden klassifiziert und mit Calamine bzw. CSV gelesen.
+2. Header und Pflichtwerte werden vor dem Schreiben validiert.
+3. Jede Datei schreibt Raw- und Faktdaten innerhalb eines Savepoints.
+4. Decimal-Werte und Mehrfachvorkommen bilden stabile Artikel-Business-Keys.
+5. Artikel werden ueber `direction + order_id` an Sendungen gebunden.
+6. DB-basierte Validierung prueft Coverage, Reconciliation, Eventkonflikte und Gruppierung.
+7. Reporting erzwingt eine sichtbare Datumsbasis und liefert paginierte, gefilterte Ansichten.
+
+### 8.2 Durchgefuehrte Aenderungen
+
+| Urspruengliches Problem | Umgesetzte Loesung | Betroffene Bereiche | Wirkung und Verifikation |
+|---|---|---|---|
+| Private Realwerte im aktuellen oeffentlichen Git-Stand | Konkrete Werte redigiert, Fixture-Assertions dynamisch bzw. synthetisch gemacht | `OUTPUT`, Tests | Aktueller Tree ohne bekannte Realwerte; Secret-/PII-Musterscan ohne Befund |
+| Toleranz-/Unicode-Risiken mit XLS und fehlendes XLSX | Einheitlicher Calamine-Reader fuer XLS/XLSX, CSV unveraendert | `readers.py`, `pyproject.toml`, Tests | 442 XLS: 0 Lese-, Header- oder Zeilenzahlabweichungen; synthetischer XLSX-Test |
+| Doppelte CSV/XLS-Zeilen und verlorene echte Mehrfachpositionen | Kanonische Decimal-Serialisierung plus Vorkommensindex | `deduplication.py`, Raw-/Artikelimport | 44 Spiegelzeilen nur einmal gezaehlt; echte identische Positionen bleiben erhalten |
+| Teilcommits, verfruehter Status und Batchabbruch | Savepoint pro Datei, Rollback/Issue, Fehlerfortsetzung, Hash-Fast-Path und atomarer `rebuild` | `pipeline.py`, CLI | Rollback-, Continue-, Skip-, Konflikt- und Replace-Tests; Folgeimport 0/447/0 |
+| Global eindeutige Order-ID | Migration auf `UNIQUE(direction, order_id)` und richtungssensitive Links/Details | Migration 003, Shipment-/Artikelimport, Reporting | Dual-Richtungstest, Alt-DB-Migration, 0 FK-Befunde |
+| Doppelte Berichte ueber Kauf-/Zahlungssicht | `PAYMENTDATE` als sichtbarer Standard, validierte Umschaltung auf `PURCHASEDATE` | Reporting, Web, CSV | Default 5.298 statt 10.560 alter Zeilen; Cross-Basis-Regressionspruefung |
+| Unvollstaendige und inkonsistente Validierung | Coverage und Summenabgleiche DB-basiert; abgeleitete Issues reproduzierbar persistiert | `validation.py`, Importseite | 18 Coverage-Warnungen, 2 Infos und 5 konkrete Eventdatum-Warnungen; keine Reconciliation-Fehler |
+| Offene Connections und schwache lokale Webgrenze | Request-Connections geschlossen, Busy Timeout, Trusted Hosts, CSP/Frame/MIME/Referrer/Cache-Header | `db.py`, `web/app.py` | Handle-/Header-/Hosttests; unbekannter Host liefert 400 |
+| Stille Listenlimits und fehlende PRD-Filter | Getrennte Pagination mit Gesamtzahlen; Betrag, Menge, Waehrung, Kommentar, Quelle, Status und Linkstatus | Reporting, Templates | Artikel 53, Sendungen 11 und Importe 5 Seiten im Vollbestand; Filter-/Seitentests |
+| Mobile Ueberbreite und englische UI | Grid-/Flex-Minima korrigiert, Tabellen intern scrollbar, deutsche Labels, Skip-Link und Fokuszustand | Templates, CSS | 390px Viewport: 375px Dokumentbreite, 0 externer Overflow; Desktop ebenfalls 0 |
+| Verwundete/veraltete Entwicklungsumgebung und fehlende Gates | pytest 9/httpx2, pip 26.1.2, mypy, Ruff, pip-audit, Build, CI und echtes Exitcode-Handling | `pyproject.toml`, Workflow, Skripte | 115 Tests, mypy/Ruff/pip check/Audit/Build bestanden |
+| Wheel ohne Migrationen/Templates/Static | Ressourcen ins Paket verschoben, Package Data und Wheel-Inhaltspruefung | `src/cm_dashboard/migrations`, Build-Konfiguration | Frische Wheel-Installation erzeugt DB mit 3 Migrationen und findet Webressourcen |
+| Veraltete Betriebsdokumentation | README, Monatsworkflow, Architektur und historischer Planstatus aktualisiert | `README.md`, `docs`, `OUTPUT` | Befehle im finalen Vollcheck ausgefuehrt |
+
+### 8.3 Bewusst nicht umgesetzt
+
+| Punkt | Grund | Verbleibendes Risiko | Empfohlener naechster Schritt |
+|---|---|---|---|
+| Git-Historie umschreiben | Force-Push ist eine separate irreversible Team-/Repository-Entscheidung | Redigierte Fragmente koennen in alten Commits weiter existieren | Klone/Branches koordinieren, Historie mit geeignetem Tool filtern, danach alle Tokens/Links pruefen |
+| Authentifizierung, Rollen und Netzwerkhosting | Fachlich nicht fuer den lokalen MVP entschieden | App waere bei externer Bindung ungeschuetzt | Bis dahin nur `127.0.0.1`; fuer Hosting eigenes Security-/Betriebskonzept erstellen |
+| Aktive DB automatisch aus OneDrive auslagern und Backup/Restore-UI | Zielpfad und Aufbewahrungsregeln sind Nutzer-/Betriebsentscheidungen | Sync-Konflikte oder Dateisperren bleiben moeglich | DB-Pfad konfigurierbar machen und versionierte Backup-/Restore-Prozedur festlegen |
+| Kombinierte Datumsbasis `beide` | Sie wuerde dieselben Artikelpositionen fachlich doppelt zaehlen | Nutzer kann Kauf-/Zahlungssicht nicht in einer Tabelle vergleichen | Vergleichsansicht mit getrennten Serien definieren, nie als gemeinsame Summe |
+| Multi-Currency-Umrechnung | Der aktuelle Bestand enthaelt nur EUR; Wechselkursquelle und Stichtag fehlen | Kuenftige gemischte Waehrungen duerfen nicht addiert werden | Pro-Waehrung-KPIs oder fachlich freigegebenes FX-Modell spezifizieren |
+| Vollstaendige PRD-Reports und Explorer | Partneransicht, Sortierung, Spaltenwahl, gefilterter Listenexport, Produktzeitreihe und Kostenreports sind groesserer Produktscope | MVP deckt nicht jede PRD-Komfortfunktion ab | Nach Nutzungsprioritaet in getrennten Produktinkrementen umsetzen |
+| Steuer-, FIFO-, Inventar- und garantierte Margenlogik | Quellen belegen keine eindeutige Zuordnung verkaufter zu gekauften Einzelartikeln | Gewinnangaben waeren fachlich nicht belastbar | Inventar-/Bewertungsregeln mit Fachentscheidung und neuen Daten definieren |
+| Strukturierter Produktivlogger/Monitoring | Kein Hintergrundbetrieb und kein Hosting im MVP | Lokale Fehleranalyse bleibt CLI-/Log-basiert | Erst bei dauerhaftem Dienstbetrieb strukturierte Events und Rotation einfuehren |
+| Lokale Python-3.14.0rc1-Umgebung ersetzen | Systeminstallation liegt ausserhalb des Repositories | Kompatibilitaets-Workaround bleibt lokal noetig | Virtuelle Umgebung mit finalem Python 3.12/3.13 oder finalem 3.14 neu erstellen |
+
+Die direkte SQL-Nutzung auf der Import- und Produktseite sowie fehlende Migrationschecksummen
+bleiben niedrige Wartbarkeitsrisiken. Eine Repository-/Service-Schicht waere fuer den aktuellen
+Umfang YAGNI und wurde deshalb nicht eingefuehrt.
+
+### 8.4 Finale Verifikation
+
+| Pruefung | Ergebnis |
+|---|---|
+| Installation | Editable Dev-Installation erfolgreich; altes `httpx` und `xlrd` entfernt |
+| Frische Distribution | Wheel in temporaerer Umgebung installiert; Laufzeitdeps konsistent; DB/Webressourcen nutzbar |
+| Ruff | Bestanden fuer `src`, `tests`, `scripts` |
+| mypy | 0 Befunde in 23 Python-Quelldateien/-skripten |
+| pytest | 115 bestanden, 1 bewusst uebersprungen (separater privater Vollquellentest) |
+| Vollquellencheck | `verify_mvp.ps1` bestanden; 447 Dateien, 442 XLS + 5 CSV, 0 unbekannt |
+| Vollstaendiger Neuaufbau | 447/447 Dateien, 0 fehlgeschlagen; anschliessende CLI-Validierung bestanden |
+| SQLite | `integrity_check=ok`, 0 Foreign-Key-Befunde, 3 Migrationen |
+| Importstatus | 447 `imported`, 0 andere Statuswerte, 0 fehlende `imported_at` |
+| Fakten | 10.576 Raw-Artikelzeilen, 10.596 Raw-Shipmentzeilen, 1.082 Sendungen, 4.065 Produkte |
+| Standardreport | 5.298 Artikelpositionen, 1.082 Sendungen, 17.158,50 EUR Kaufwert, 3.803,78 EUR Verkaufswert |
+| Weitere Sichten | Gekauft/Kaufdatum: 3.593 Zeilen und 16.176,95 EUR; Verkauft je Basis: 1.641 Zeilen und 3.803,78 EUR |
+| Persistierte Validierung | 25 Hinweise: 18 Coverage, 5 fehlende Eventdaten, 2 Informationen; 0 Errors |
+| Idempotenter Folgeimport | 0 importiert, 447 uebersprungen, 0 fehlgeschlagen |
+| Dependency-Konsistenz | `pip check` ohne Befund |
+| Dependency-Sicherheit | `pip-audit`: keine bekannten Schwachstellen; lokales Projekt selbst nicht auf PyPI auditierbar |
+| Paketbuild | sdist und Wheel erfolgreich; Migrationen, Templates, CSS und JS im Wheel verifiziert |
+| HTTP-Smoke | Dashboard, Importe, Sendungen, Artikel und CSV jeweils 200; unbekannter Host 400 |
+| Browser Desktop | 1.265px Client-/Dokumentbreite, 0 externer Overflow, 0 Console-Warnungen/-Fehler |
+| Browser Mobil | 390px Viewport, 375px Client-/Dokumentbreite, Panels 343px, Tabellen intern scrollbar, 0 externer Overflow |
+| Performance (50 warme Laeufe) | KPIs 6,90 ms; Monat 7,52 ms; Artikelseite Count+100 Rows 16,20 ms; Sendungsseite 2,19 ms |
+| Secrets/private Artefakte | Keine getrackten XLS/XLSX/CSV/DB/Logs und kein Credential-Muster im aktuellen Tree |
+| Aktive DB | Gepruefter Neuaufbau installiert; alte DB lokal als `data/cardmarket.pre-optimization-20260711.db` gesichert |
+| Git | 14 logisch getrennte lokale Commits; nicht gepusht; GitHub-CI daher noch nicht remote ausgefuehrt |
+
+### 8.5 Abschliessende Bewertung
+
+| Dimension | Bewertung nach der Ueberarbeitung |
+|---|---|
+| Funktionsfaehigkeit | Hoch fuer den lokalen MVP. Import, Verknuepfung, Explorer, Details, Diagramm und CSV arbeiten auf dem Vollbestand. |
+| Sicherheit | Angemessen fuer localhost-only: read-only Web, Hostschutz, Header und Maskierung. Nicht fuer Netzwerk-/Internetbetrieb freigegeben. |
+| Wartbarkeit | Deutlich verbessert durch kleine Module, atomare Grenzen, Typpruefung, CI, paketierte Ressourcen und aktuelle Dokumentation. |
+| Erweiterbarkeit | Gut innerhalb des lokalen Reportingmodells; Hosting, Inventar und FX benoetigen bewusste neue Architektur-/Fachentscheidungen. |
+| Performance | Sehr gut fuer 21.172 Raw-Zeilen und 5.298 Standard-Fakten; kein Cache oder DB-Wechsel erforderlich. |
+| Testbarkeit | Hoch fuer kritische Import-/Datenlogik und Webpfade; privater Vollbestand wird zusaetzlich separat end-to-end geprueft. |
+| Produktionsreife | Einsatzbereit als lokaler Einzelplatz-MVP. Nicht produktionsreif als gehostetes Mehrbenutzer- oder Buchhaltungssystem. |
+
+**Gesamturteil:** Der lokale MVP ist nach den Korrekturen praktisch einsetzbar und
+implementierungsseitig belastbar. Die verbleibenden Punkte sind dokumentierte Produkt- oder
+Betriebsentscheidungen, keine verdeckten defekten Kernfunktionen.
