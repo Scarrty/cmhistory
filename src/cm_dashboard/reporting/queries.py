@@ -26,7 +26,17 @@ class ReportingFilters:
     expansion: str | None = None
     category: str | None = None
     username: str | None = None
+    counterparty_name: str | None = None
     country: str | None = None
+    currency: str | None = None
+    min_amount: float | None = None
+    max_amount: float | None = None
+    min_quantity: int | None = None
+    max_quantity: int | None = None
+    comments: str | None = None
+    import_file: str | None = None
+    import_status: str | None = None
+    link_status: str | None = None
 
 
 def fetch_article_lines(
@@ -59,9 +69,13 @@ def fetch_article_lines(
             article_lines.currency,
             article_lines.comments,
             shipments.username,
-            shipments.country
+            shipments.counterparty_name,
+            shipments.country,
+            import_files.file_name AS import_file_name
         FROM article_lines
         LEFT JOIN shipments ON shipments.shipment_id = article_lines.shipment_id
+        LEFT JOIN import_files
+            ON import_files.import_file_id = article_lines.source_import_file_id
         {where}
         ORDER BY article_lines.event_datetime DESC, article_lines.article_line_id DESC
         LIMIT ? OFFSET ?
@@ -82,6 +96,8 @@ def count_article_lines(
         SELECT COUNT(*)
         FROM article_lines
         LEFT JOIN shipments ON shipments.shipment_id = article_lines.shipment_id
+        LEFT JOIN import_files
+            ON import_files.import_file_id = article_lines.source_import_file_id
         {where}
         """,
         params,
@@ -107,6 +123,7 @@ def fetch_shipments(
             shipments.order_id,
             shipments.direction,
             shipments.username,
+            shipments.counterparty_name,
             shipments.country,
             shipments.article_count,
             shipments.merchandise_value,
@@ -117,6 +134,8 @@ def fetch_shipments(
             shipments.currency
         FROM shipments
         LEFT JOIN shipment_events ON shipment_events.shipment_id = shipments.shipment_id
+        LEFT JOIN import_files
+            ON import_files.import_file_id = shipment_events.source_import_file_id
         {where}
         ORDER BY shipments.order_id DESC, shipments.shipment_id DESC
         LIMIT ? OFFSET ?
@@ -137,6 +156,8 @@ def count_shipments(
         SELECT COUNT(DISTINCT shipments.shipment_id)
         FROM shipments
         LEFT JOIN shipment_events ON shipment_events.shipment_id = shipments.shipment_id
+        LEFT JOIN import_files
+            ON import_files.import_file_id = shipment_events.source_import_file_id
         {where}
         """,
         params,
@@ -236,6 +257,8 @@ def period_totals(
             COALESCE(SUM(CAST(article_lines.total AS REAL)), 0) AS combined_total
         FROM article_lines
         LEFT JOIN shipments ON shipments.shipment_id = article_lines.shipment_id
+        LEFT JOIN import_files
+            ON import_files.import_file_id = article_lines.source_import_file_id
         {where}
         """,
         params,
@@ -260,6 +283,8 @@ def monthly_totals(
             COALESCE(SUM(CAST(article_lines.total AS REAL)), 0) AS total
         FROM article_lines
         LEFT JOIN shipments ON shipments.shipment_id = article_lines.shipment_id
+        LEFT JOIN import_files
+            ON import_files.import_file_id = article_lines.source_import_file_id
         {where}
         GROUP BY month, article_lines.direction
         ORDER BY month, article_lines.direction
@@ -318,7 +343,10 @@ def _shipment_where(filters: ReportingFilters) -> tuple[str, list[Any]]:
     if filters.direction:
         clauses.append("shipments.direction = ?")
         params.append(filters.direction)
-    if filters.date_basis:
+    event_filter_requested = any(
+        (filters.start_date, filters.end_date, filters.import_file, filters.import_status)
+    )
+    if filters.date_basis and event_filter_requested:
         clauses.append("shipment_events.event_type = ?")
         params.append(filters.date_basis)
     if filters.start_date:
@@ -333,9 +361,43 @@ def _shipment_where(filters: ReportingFilters) -> tuple[str, list[Any]]:
     if filters.username:
         clauses.append("shipments.username LIKE ?")
         params.append(f"%{filters.username}%")
+    if filters.counterparty_name:
+        clauses.append("shipments.counterparty_name LIKE ?")
+        params.append(f"%{filters.counterparty_name}%")
     if filters.country:
         clauses.append("shipments.country = ?")
         params.append(filters.country)
+    if filters.currency:
+        clauses.append("shipments.currency = ?")
+        params.append(filters.currency)
+    if filters.min_amount is not None:
+        clauses.append("CAST(shipments.total_value AS REAL) >= ?")
+        params.append(filters.min_amount)
+    if filters.max_amount is not None:
+        clauses.append("CAST(shipments.total_value AS REAL) <= ?")
+        params.append(filters.max_amount)
+    if filters.min_quantity is not None:
+        clauses.append("shipments.article_count >= ?")
+        params.append(filters.min_quantity)
+    if filters.max_quantity is not None:
+        clauses.append("shipments.article_count <= ?")
+        params.append(filters.max_quantity)
+    if filters.import_file:
+        clauses.append("import_files.file_name LIKE ?")
+        params.append(f"%{filters.import_file}%")
+    if filters.import_status:
+        clauses.append("import_files.import_status = ?")
+        params.append(filters.import_status)
+    if filters.link_status == "linked":
+        clauses.append(
+            "EXISTS (SELECT 1 FROM article_lines "
+            "WHERE article_lines.shipment_id = shipments.shipment_id)"
+        )
+    elif filters.link_status == "unlinked":
+        clauses.append(
+            "NOT EXISTS (SELECT 1 FROM article_lines "
+            "WHERE article_lines.shipment_id = shipments.shipment_id)"
+        )
     return _where_sql(clauses), params
 
 
@@ -381,9 +443,40 @@ def _add_common_article_filters(
     if filters.username:
         clauses.append("shipments.username LIKE ?")
         params.append(f"%{filters.username}%")
+    if filters.counterparty_name:
+        clauses.append("shipments.counterparty_name LIKE ?")
+        params.append(f"%{filters.counterparty_name}%")
     if filters.country:
         clauses.append("shipments.country = ?")
         params.append(filters.country)
+    if filters.currency:
+        clauses.append("article_lines.currency = ?")
+        params.append(filters.currency)
+    if filters.min_amount is not None:
+        clauses.append("CAST(article_lines.total AS REAL) >= ?")
+        params.append(filters.min_amount)
+    if filters.max_amount is not None:
+        clauses.append("CAST(article_lines.total AS REAL) <= ?")
+        params.append(filters.max_amount)
+    if filters.min_quantity is not None:
+        clauses.append("article_lines.quantity >= ?")
+        params.append(filters.min_quantity)
+    if filters.max_quantity is not None:
+        clauses.append("article_lines.quantity <= ?")
+        params.append(filters.max_quantity)
+    if filters.comments:
+        clauses.append("article_lines.comments LIKE ?")
+        params.append(f"%{filters.comments}%")
+    if filters.import_file:
+        clauses.append("import_files.file_name LIKE ?")
+        params.append(f"%{filters.import_file}%")
+    if filters.import_status:
+        clauses.append("import_files.import_status = ?")
+        params.append(filters.import_status)
+    if filters.link_status == "linked":
+        clauses.append("article_lines.shipment_id IS NOT NULL")
+    elif filters.link_status == "unlinked":
+        clauses.append("article_lines.shipment_id IS NULL")
 
 
 def _where_sql(clauses: list[str]) -> str:

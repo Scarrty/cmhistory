@@ -230,6 +230,67 @@ def test_reporting_lists_reject_invalid_page_bounds(tmp_path, limit, offset) -> 
         fetch_shipments(connection, limit=limit, offset=offset)
 
 
+def test_reporting_filters_cover_source_backed_explorer_fields(tmp_path) -> None:
+    connection = create_database(tmp_path / "cardmarket.db")
+    source = tmp_path / "source"
+    write_article_source(
+        source / "SOLD ARTICLES-BYPAYMENTDATE-2026-08-01_2026-08-31.CSV"
+    )
+    write_shipment_source(
+        source / "SOLD SHIPMENTS-BYPAYMENTDATE-2026-08-01_2026-08-31.CSV"
+    )
+    import_source_folder(connection, source)
+
+    article_rows = fetch_article_lines(
+        connection,
+        ReportingFilters(
+            counterparty_name="Synthetic Person",
+            currency="EUR",
+            min_amount=7.5,
+            max_amount=8.5,
+            min_quantity=1,
+            max_quantity=1,
+            comments="fixture",
+            import_file="SOLD ARTICLES",
+            import_status="imported",
+            link_status="linked",
+        ),
+    )
+    shipment_rows = fetch_shipments(
+        connection,
+        ReportingFilters(
+            counterparty_name="Synthetic Person",
+            currency="EUR",
+            min_amount=9,
+            max_amount=10,
+            min_quantity=1,
+            max_quantity=1,
+            import_file="SOLD SHIPMENTS",
+            import_status="imported",
+            link_status="linked",
+        ),
+    )
+
+    assert len(article_rows) == 1
+    assert article_rows[0]["import_file_name"].startswith("SOLD ARTICLES")
+    assert len(shipment_rows) == 1
+    assert shipment_rows[0]["counterparty_name"] == "Synthetic Person"
+    assert fetch_article_lines(connection, ReportingFilters(link_status="unlinked")) == []
+    assert fetch_shipments(connection, ReportingFilters(link_status="unlinked")) == []
+
+
+def test_shipment_list_keeps_undated_rows_until_a_date_filter_is_requested(tmp_path) -> None:
+    connection = create_database(tmp_path / "cardmarket.db")
+    connection.execute(
+        "INSERT INTO shipments(order_id, direction) VALUES ('undated-order', 'PURCHASED')"
+    )
+
+    assert count_shipments(connection) == 1
+    assert [row["order_id"] for row in fetch_shipments(connection)] == ["undated-order"]
+    dated_filters = ReportingFilters(start_date="2026-08-01", end_date="2026-08-31")
+    assert count_shipments(connection, dated_filters) == 0
+
+
 def _metadata(path):
     from cm_dashboard.importing.filename import require_parsed_filename
 

@@ -35,6 +35,28 @@ def test_web_app_rejects_invalid_filter_values(tmp_path) -> None:
     assert client.get("/?start_date=2026-08-02&end_date=2026-08-01").status_code == 422
     assert client.get("/articles?page=0").status_code == 422
     assert client.get("/shipments?page=not-a-number").status_code == 422
+    assert client.get("/articles?min_amount=NaN").status_code == 422
+    assert client.get("/articles?min_amount=10&max_amount=9").status_code == 422
+    assert client.get("/articles?min_quantity=1.5").status_code == 422
+    assert client.get("/articles?min_quantity=2&max_quantity=1").status_code == 422
+    assert client.get("/articles?import_status=unknown").status_code == 422
+    assert client.get("/articles?link_status=unknown").status_code == 422
+
+
+def test_article_page_retains_advanced_filter_values(tmp_path) -> None:
+    client = TestClient(create_app(database_path=tmp_path / "cardmarket.db"))
+
+    response = client.get(
+        "/articles?currency=eur&min_amount=1.25&max_quantity=4"
+        "&comments=note&import_status=imported&link_status=linked"
+    )
+
+    assert response.status_code == 200
+    assert 'name="currency" value="EUR"' in response.text
+    assert 'name="min_amount" type="number" step="0.01" value="1.25"' in response.text
+    assert 'name="max_quantity" type="number" min="0" step="1" value="4"' in response.text
+    assert '<option value="imported" selected>imported</option>' in response.text
+    assert '<option value="linked" selected>Linked</option>' in response.text
 
 
 def test_article_pages_expose_all_filtered_rows(tmp_path) -> None:

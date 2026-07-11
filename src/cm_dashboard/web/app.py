@@ -12,6 +12,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -60,6 +61,7 @@ from cm_dashboard.reporting.queries import (
 
 WEB_DIR = Path(__file__).resolve().parent
 PAGE_SIZE = 100
+IMPORT_STATUSES = {"pending", "processing", "imported", "failed", "conflict"}
 PERIOD_REPORT_FIELDS = (
     "section",
     "date_basis",
@@ -350,6 +352,16 @@ def _filters_from_request(request: Request) -> ReportingFilters:
     end_date = _validated_date("end_date", request.query_params.get("end_date"))
     if start_date and end_date and end_date < start_date:
         raise HTTPException(status_code=422, detail="end_date must not be before start_date")
+    min_amount = _validated_decimal("min_amount", request.query_params.get("min_amount"))
+    max_amount = _validated_decimal("max_amount", request.query_params.get("max_amount"))
+    min_quantity = _validated_nonnegative_int(
+        "min_quantity", request.query_params.get("min_quantity")
+    )
+    max_quantity = _validated_nonnegative_int(
+        "max_quantity", request.query_params.get("max_quantity")
+    )
+    _validate_range("amount", min_amount, max_amount)
+    _validate_range("quantity", min_quantity, max_quantity)
     return ReportingFilters(
         start_date=start_date.isoformat() if start_date else None,
         end_date=end_date.isoformat() if end_date else None,
@@ -364,13 +376,31 @@ def _filters_from_request(request: Request) -> ReportingFilters:
             {"PURCHASEDATE", "PAYMENTDATE"},
             default=DEFAULT_DATE_BASIS,
         ),
-        order_id=request.query_params.get("order_id") or None,
-        product_id=request.query_params.get("product_id") or None,
-        product_text=request.query_params.get("product_text") or None,
-        expansion=request.query_params.get("expansion") or None,
-        category=request.query_params.get("category") or None,
-        username=request.query_params.get("username") or None,
-        country=request.query_params.get("country") or None,
+        order_id=_query_text(request, "order_id"),
+        product_id=_query_text(request, "product_id"),
+        product_text=_query_text(request, "product_text"),
+        expansion=_query_text(request, "expansion"),
+        category=_query_text(request, "category"),
+        username=_query_text(request, "username"),
+        counterparty_name=_query_text(request, "counterparty_name"),
+        country=_query_text(request, "country"),
+        currency=(_query_text(request, "currency") or "").upper() or None,
+        min_amount=min_amount,
+        max_amount=max_amount,
+        min_quantity=min_quantity,
+        max_quantity=max_quantity,
+        comments=_query_text(request, "comments"),
+        import_file=_query_text(request, "import_file"),
+        import_status=_validated_choice(
+            "import_status",
+            _query_text(request, "import_status"),
+            IMPORT_STATUSES,
+        ),
+        link_status=_validated_choice(
+            "link_status",
+            _query_text(request, "link_status"),
+            {"linked", "unlinked"},
+        ),
     )
 
 
@@ -407,6 +437,42 @@ def _validated_positive_int(name: str, value: str | None, *, default: int) -> in
     if parsed <= 0:
         raise HTTPException(status_code=422, detail=f"{name} must be a positive integer")
     return parsed
+
+
+def _validated_nonnegative_int(name: str, value: str | None) -> int | None:
+    if not value:
+        return None
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422, detail=f"{name} must be a non-negative integer"
+        ) from exc
+    if parsed < 0:
+        raise HTTPException(status_code=422, detail=f"{name} must be a non-negative integer")
+    return parsed
+
+
+def _validated_decimal(name: str, value: str | None) -> float | None:
+    if not value:
+        return None
+    try:
+        parsed = Decimal(value)
+    except InvalidOperation as exc:
+        raise HTTPException(status_code=422, detail=f"{name} must be a decimal number") from exc
+    if not parsed.is_finite():
+        raise HTTPException(status_code=422, detail=f"{name} must be a finite decimal number")
+    return float(parsed)
+
+
+def _validate_range(name: str, minimum, maximum) -> None:
+    if minimum is not None and maximum is not None and minimum > maximum:
+        raise HTTPException(status_code=422, detail=f"min_{name} must not exceed max_{name}")
+
+
+def _query_text(request: Request, name: str) -> str | None:
+    value = request.query_params.get(name)
+    return value.strip() or None if value else None
 
 
 def _pagination_context(request: Request, pagination: Pagination) -> dict:

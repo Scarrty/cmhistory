@@ -8,29 +8,7 @@
       <span class="muted">{{ pagination.total_count }} rows</span>
     </div>
     <form class="filter-row" method="get" action="/shipments">
-      <div class="field">
-        <label for="start_date">From</label>
-        <input id="start_date" name="start_date" type="date" value="{{ filters.start_date or '' }}">
-      </div>
-      <div class="field">
-        <label for="end_date">To</label>
-        <input id="end_date" name="end_date" type="date" value="{{ filters.end_date or '' }}">
-      </div>
-      <div class="field">
-        <label for="direction">Direction</label>
-        <select id="direction" name="direction">
-          <option value="" {% if not filters.direction %}selected{% endif %}>Both</option>
-          <option value="PURCHASED" {% if filters.direction == 'PURCHASED' %}selected{% endif %}>Purchased</option>
-          <option value="SOLD" {% if filters.direction == 'SOLD' %}selected{% endif %}>Sold</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="date_basis">Basis</label>
-        <select id="date_basis" name="date_basis">
-          <option value="PAYMENTDATE" {% if filters.date_basis == 'PAYMENTDATE' %}selected{% endif %}>Payment date</option>
-          <option value="PURCHASEDATE" {% if filters.date_basis == 'PURCHASEDATE' %}selected{% endif %}>Purchase date</option>
-        </select>
-      </div>
+      {% include "_common_filters.html" %}
       <div class="field">
         <label for="order_id">Order</label>
         <input id="order_id" name="order_id" value="{{ filters.order_id or '' }}">
@@ -44,6 +22,62 @@
         <input id="country" name="country" value="{{ filters.country or '' }}">
       </div>
       <button type="submit">Apply</button>
+      <details
+        class="filter-details"
+        {% if filters.counterparty_name or filters.currency or filters.min_amount is not none
+              or filters.max_amount is not none or filters.min_quantity is not none
+              or filters.max_quantity is not none or filters.import_file
+              or filters.import_status or filters.link_status %}open{% endif %}
+      >
+        <summary>More filters</summary>
+        <div class="filter-row filter-details-fields">
+          <div class="field">
+            <label for="counterparty_name">Name</label>
+            <input id="counterparty_name" name="counterparty_name" value="{{ filters.counterparty_name or '' }}">
+          </div>
+          <div class="field compact-field">
+            <label for="currency">Currency</label>
+            <input id="currency" name="currency" value="{{ filters.currency or '' }}">
+          </div>
+          <div class="field compact-field">
+            <label for="min_amount">Amount from</label>
+            <input id="min_amount" name="min_amount" type="number" step="0.01" value="{{ filters.min_amount if filters.min_amount is not none else '' }}">
+          </div>
+          <div class="field compact-field">
+            <label for="max_amount">Amount to</label>
+            <input id="max_amount" name="max_amount" type="number" step="0.01" value="{{ filters.max_amount if filters.max_amount is not none else '' }}">
+          </div>
+          <div class="field compact-field">
+            <label for="min_quantity">Quantity from</label>
+            <input id="min_quantity" name="min_quantity" type="number" min="0" step="1" value="{{ filters.min_quantity if filters.min_quantity is not none else '' }}">
+          </div>
+          <div class="field compact-field">
+            <label for="max_quantity">Quantity to</label>
+            <input id="max_quantity" name="max_quantity" type="number" min="0" step="1" value="{{ filters.max_quantity if filters.max_quantity is not none else '' }}">
+          </div>
+          <div class="field">
+            <label for="import_file">Import file</label>
+            <input id="import_file" name="import_file" value="{{ filters.import_file or '' }}">
+          </div>
+          <div class="field">
+            <label for="import_status">Import status</label>
+            <select id="import_status" name="import_status">
+              <option value="" {% if not filters.import_status %}selected{% endif %}>Any</option>
+              {% for status in ['imported', 'failed', 'conflict', 'processing', 'pending'] %}
+              <option value="{{ status }}" {% if filters.import_status == status %}selected{% endif %}>{{ status }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="link_status">Link status</label>
+            <select id="link_status" name="link_status">
+              <option value="" {% if not filters.link_status %}selected{% endif %}>Any</option>
+              <option value="linked" {% if filters.link_status == 'linked' %}selected{% endif %}>Linked</option>
+              <option value="unlinked" {% if filters.link_status == 'unlinked' %}selected{% endif %}>Unlinked</option>
+            </select>
+          </div>
+        </div>
+      </details>
     </form>
   </section>
 
@@ -55,6 +89,7 @@
             <th>Order</th>
             <th>Direction</th>
             <th>Username</th>
+            <th>Name</th>
             <th>Country</th>
             <th>Articles</th>
             <th>Merchandise</th>
@@ -69,6 +104,7 @@
             <td><a href="/shipments/{{ shipment.order_id }}?direction={{ shipment.direction }}&amp;date_basis={{ filters.date_basis }}">{{ shipment.order_id }}</a></td>
             <td>{{ shipment.direction }}</td>
             <td>{{ shipment.username|mask_text }}</td>
+            <td>{{ shipment.counterparty_name|mask_text }}</td>
             <td>{{ shipment.country or "" }}</td>
             <td>{{ shipment.article_count or "" }}</td>
             <td>{{ shipment.merchandise_value or "" }}</td>
@@ -78,7 +114,7 @@
           </tr>
           {% else %}
           <tr>
-            <td colspan="9" class="muted">No rows</td>
+            <td colspan="10" class="muted">No rows</td>
           </tr>
           {% endfor %}
         </tbody>
