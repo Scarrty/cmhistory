@@ -4,8 +4,12 @@
 from __future__ import annotations
 
 import csv
+import inspect
 import io
+import sqlite3
 import typing
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
 
@@ -13,6 +17,8 @@ from pathlib import Path
 def _patch_python314_typing_for_pydantic() -> None:
     original_eval_type = getattr(typing, "_eval_type", None)
     if original_eval_type is None or getattr(original_eval_type, "_cm_dashboard_patched", False):
+        return
+    if "prefer_fwd_module" in inspect.signature(original_eval_type).parameters:
         return
 
     def patched_eval_type(*args, **kwargs):
@@ -29,9 +35,11 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from cm_dashboard.config import load_settings
-from cm_dashboard.db import create_database
+from cm_dashboard.db import connect_database, create_database
+from cm_dashboard.importing.pipeline import database_requires_rebuild
 from cm_dashboard.reporting.queries import (
     DEFAULT_DATE_BASIS,
     AmbiguousShipmentError,
@@ -63,16 +71,41 @@ templates.env.filters["mask_text"] = lambda value: _mask_text(value)
 
 
 def create_app(database_path: str | Path | None = None) -> FastAPI:
-    app = FastAPI(title="Cardmarket History Dashboard")
+    app = FastAPI(
+        title="Cardmarket History Dashboard",
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+    )
     app.state.database_path = load_settings(database_path=database_path).database_path
+    initial_connection = create_database(app.state.database_path)
+    initial_connection.close()
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=["127.0.0.1", "localhost", "[::1]", "testserver"],
+    )
     app.mount("/static", StaticFiles(directory=str(WEB_DIR / "static")), name="static")
+
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; object-src 'none'; frame-ancestors 'none'; "
+            "base-uri 'self'; form-action 'self'"
+        )
+        if not request.url.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
 
     @app.get("/", response_class=HTMLResponse)
     def home(request: Request):
         filters = _filters_from_request(request)
-        connection = create_database(app.state.database_path)
-        totals = period_totals(connection, filters)
-        monthly = monthly_totals(connection, filters)
+        with _database_connection(app.state.database_path) as connection:
+            totals = period_totals(connection, filters)
+            monthly = monthly_totals(connection, filters)
         return templates.TemplateResponse(
             request,
             "dashboard.html",
@@ -88,26 +121,27 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/imports", response_class=HTMLResponse)
     def imports(request: Request):
-        connection = create_database(app.state.database_path)
-        files = connection.execute(
-            """
-            SELECT import_file_id, file_name, direction, entity, date_basis,
-                   period_start, period_end, row_count, import_status
-            FROM import_files
-            ORDER BY import_file_id DESC
-            LIMIT 250
-            """
-        ).fetchall()
-        issues = connection.execute(
-            """
-            SELECT import_issues.severity, import_issues.code, import_issues.message,
-                   import_issues.source_row_number, import_files.file_name
-            FROM import_issues
-            LEFT JOIN import_files ON import_files.import_file_id = import_issues.import_file_id
-            ORDER BY import_issues.import_issue_id DESC
-            LIMIT 250
-            """
-        ).fetchall()
+        with _database_connection(app.state.database_path) as connection:
+            files = connection.execute(
+                """
+                SELECT import_file_id, file_name, direction, entity, date_basis,
+                       period_start, period_end, row_count, import_status
+                FROM import_files
+                ORDER BY import_file_id DESC
+                LIMIT 250
+                """
+            ).fetchall()
+            issues = connection.execute(
+                """
+                SELECT import_issues.severity, import_issues.code, import_issues.message,
+                       import_issues.source_row_number, import_files.file_name
+                FROM import_issues
+                LEFT JOIN import_files
+                    ON import_files.import_file_id = import_issues.import_file_id
+                ORDER BY import_issues.import_issue_id DESC
+                LIMIT 250
+                """
+            ).fetchall()
         return templates.TemplateResponse(
             request,
             "imports.html",
@@ -122,8 +156,8 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     @app.get("/shipments", response_class=HTMLResponse)
     def shipments(request: Request):
         filters = _filters_from_request(request)
-        connection = create_database(app.state.database_path)
-        rows = fetch_shipments(connection, filters)
+        with _database_connection(app.state.database_path) as connection:
+            rows = fetch_shipments(connection, filters)
         return templates.TemplateResponse(
             request,
             "shipments.html",
@@ -138,8 +172,8 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     @app.get("/articles", response_class=HTMLResponse)
     def articles(request: Request):
         filters = _filters_from_request(request)
-        connection = create_database(app.state.database_path)
-        rows = fetch_article_lines(connection, filters)
+        with _database_connection(app.state.database_path) as connection:
+            rows = fetch_article_lines(connection, filters)
         return templates.TemplateResponse(
             request,
             "articles.html",
@@ -153,25 +187,25 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/products/{product_id}", response_class=HTMLResponse)
     def product_detail(request: Request, product_id: str):
-        connection = create_database(app.state.database_path)
-        product = connection.execute(
-            "SELECT product_id FROM products WHERE product_id = ?",
-            (product_id,),
-        ).fetchone()
-        if product is None:
-            raise HTTPException(status_code=404, detail="Product not found")
-        filters = ReportingFilters(product_id=product_id)
-        labels = connection.execute(
-            """
-            SELECT label
-            FROM product_labels
-            WHERE product_id = ?
-            ORDER BY label
-            """,
-            (product_id,),
-        ).fetchall()
-        articles = fetch_article_lines(connection, filters)
-        totals = period_totals(connection, filters)
+        with _database_connection(app.state.database_path) as connection:
+            product = connection.execute(
+                "SELECT product_id FROM products WHERE product_id = ?",
+                (product_id,),
+            ).fetchone()
+            if product is None:
+                raise HTTPException(status_code=404, detail="Product not found")
+            filters = ReportingFilters(product_id=product_id)
+            labels = connection.execute(
+                """
+                SELECT label
+                FROM product_labels
+                WHERE product_id = ?
+                ORDER BY label
+                """,
+                (product_id,),
+            ).fetchall()
+            articles = fetch_article_lines(connection, filters)
+            totals = period_totals(connection, filters)
         return templates.TemplateResponse(
             request,
             "product_detail.html",
@@ -188,8 +222,8 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     @app.get("/reports/period.csv")
     def period_report(request: Request):
         filters = _filters_from_request(request)
-        connection = create_database(app.state.database_path)
-        body = _csv_body(period_report_rows(connection, filters))
+        with _database_connection(app.state.database_path) as connection:
+            body = _csv_body(period_report_rows(connection, filters))
         return Response(
             body,
             media_type="text/csv; charset=utf-8",
@@ -210,19 +244,19 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
             {"PURCHASEDATE", "PAYMENTDATE"},
             default=DEFAULT_DATE_BASIS,
         )
-        connection = create_database(app.state.database_path)
-        try:
-            shipment = fetch_shipment_detail(connection, order_id, direction=direction)
-        except AmbiguousShipmentError as exc:
-            raise HTTPException(status_code=409, detail=str(exc)) from exc
-        if shipment is None:
-            raise HTTPException(status_code=404, detail="Shipment not found")
-        events = fetch_shipment_events(connection, shipment["shipment_id"])
-        articles = fetch_shipment_articles(
-            connection,
-            shipment["shipment_id"],
-            date_basis=date_basis,
-        )
+        with _database_connection(app.state.database_path) as connection:
+            try:
+                shipment = fetch_shipment_detail(connection, order_id, direction=direction)
+            except AmbiguousShipmentError as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
+            if shipment is None:
+                raise HTTPException(status_code=404, detail="Shipment not found")
+            events = fetch_shipment_events(connection, shipment["shipment_id"])
+            articles = fetch_shipment_articles(
+                connection,
+                shipment["shipment_id"],
+                date_basis=date_basis,
+            )
         return templates.TemplateResponse(
             request,
             "shipment_detail.html",
@@ -240,6 +274,20 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
 
 
 app = create_app()
+
+
+@contextmanager
+def _database_connection(database_path: str | Path) -> Iterator[sqlite3.Connection]:
+    connection = connect_database(database_path)
+    try:
+        if database_requires_rebuild(connection):
+            raise HTTPException(
+                status_code=503,
+                detail="Database normalization is outdated; run the rebuild command",
+            )
+        yield connection
+    finally:
+        connection.close()
 
 
 def _filters_from_request(request: Request) -> ReportingFilters:

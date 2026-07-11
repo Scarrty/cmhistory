@@ -67,6 +67,7 @@ def test_connections_enable_foreign_keys() -> None:
     connection = connect_database(":memory:")
 
     assert connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+    assert connection.execute("PRAGMA busy_timeout").fetchone()[0] == 5000
 
 
 def test_foreign_keys_are_enforced_after_migration(tmp_path) -> None:
