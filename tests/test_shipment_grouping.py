@@ -4,7 +4,7 @@ from cm_dashboard.importing.filename import DateBasis, ExportEntity
 from cm_dashboard.importing.readers import read_spreadsheet
 from cm_dashboard.importing.shipment_grouping import resolve_shipment_groups
 from cm_dashboard.importing.source_scan import scan_source_files
-from tests.fixtures import require_fixture_path, source_root
+from tests.fixtures import require_fixture_path, requires_full_source, source_root
 
 
 def test_shipment_grouping_forward_fills_continuation_rows_from_previous_header() -> None:
@@ -38,6 +38,7 @@ def test_shipment_grouping_preserves_source_row_numbers() -> None:
     assert [row.source_row_number for row in rows] == list(range(2, len(rows) + 2))
 
 
+@requires_full_source
 def test_shipment_group_counts_match_review_evidence() -> None:
     expected = {
         ("PURCHASED", DateBasis.PAYMENTDATE): (3657, 740, 2917, 740),

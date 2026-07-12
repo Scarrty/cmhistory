@@ -130,7 +130,9 @@ Datenbankaufbau startet mit:
 ```
 
 GitHub Actions fuehrt fuer Python 3.12 Linting, Typpruefung, Tests, Dependency-Audit und
-Distributionspruefung ohne Zugriff auf private Exporte aus.
+Distributionspruefung ohne Zugriff auf private Exporte aus. Tests, die den privaten
+Vollbestand voraussetzen, laufen nur mit `CM_DASHBOARD_RUN_FULL_SOURCE_TESTS=1` und werden
+sonst uebersprungen.
 
 ## Datenschutz und Betrieb
 

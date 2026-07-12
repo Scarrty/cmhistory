@@ -3,15 +3,17 @@ from cm_dashboard.importing.filename import require_parsed_filename
 from cm_dashboard.importing.pipeline import import_source_file, import_source_folder
 from cm_dashboard.importing.source_scan import SourceFile
 from cm_dashboard.importing.validation import (
+    ValidationIssue,
     persist_validation_issues,
     refresh_validation_issues,
     validate_database,
     validate_source_folder,
 )
-from tests.fixtures import require_fixture_path, source_root
+from tests.fixtures import require_fixture_path, requires_full_source, source_root
 from tests.synthetic_sources import write_article_source, write_shipment_source
 
 
+@requires_full_source
 def test_validate_source_folder_reports_known_missing_coverage_examples() -> None:
     issues = validate_source_folder(source_root(), check_headers=False)
     missing = {
@@ -50,9 +52,16 @@ def test_validate_database_reports_duplicates_unmatched_and_grouping_summary(tmp
 
 def test_persist_validation_issues_stores_issues(tmp_path) -> None:
     connection = create_database(tmp_path / "cardmarket.db")
-    issues = validate_source_folder(source_root(), check_headers=False)
+    issues = tuple(
+        ValidationIssue(
+            severity="warning",
+            code="missing_period_coverage",
+            message=f"Synthetic coverage issue {index}",
+        )
+        for index in range(3)
+    )
 
-    stored_count = persist_validation_issues(connection, issues[:3])
+    stored_count = persist_validation_issues(connection, issues)
 
     assert stored_count == 3
     assert connection.execute("SELECT COUNT(*) FROM import_issues").fetchone()[0] == 3

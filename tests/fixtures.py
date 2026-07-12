@@ -9,6 +9,15 @@ import pytest
 from cm_dashboard.config import PROJECT_ROOT, normalize_path
 
 SOURCE_ROOT_ENV = "CM_DASHBOARD_SOURCE_ROOT"
+FULL_SOURCE_TESTS_ENV = "CM_DASHBOARD_RUN_FULL_SOURCE_TESTS"
+
+requires_full_source = pytest.mark.skipif(
+    os.environ.get(FULL_SOURCE_TESTS_ENV) != "1",
+    reason=(
+        f"Set {FULL_SOURCE_TESTS_ENV}=1 to run tests that assert the "
+        "private full source folder inventory."
+    ),
+)
 
 
 @dataclass(frozen=True)
