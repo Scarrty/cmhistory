@@ -33,6 +33,7 @@ try {
     Invoke-CheckedPython @("-m", "mypy")
 
     Write-Host "Running tests..."
+    $env:CM_DASHBOARD_RUN_FULL_SOURCE_TESTS = "1"
     Invoke-CheckedPython @("-m", "pytest", "-q")
 
     Write-Host "Checking installed dependencies..."

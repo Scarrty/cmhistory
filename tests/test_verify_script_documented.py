@@ -6,6 +6,7 @@ def test_verify_mvp_script_documents_expected_commands() -> None:
 
     assert script_path.is_file()
     script = script_path.read_text(encoding="utf-8")
+    assert 'CM_DASHBOARD_RUN_FULL_SOURCE_TESTS = "1"' in script
     assert '"-m", "pytest", "-q"' in script
     assert '"-m", "ruff", "check", "src", "tests", "scripts"' in script
     assert '"-m", "mypy"' in script
