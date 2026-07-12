@@ -9,8 +9,10 @@ from pathlib import Path
 
 from cm_dashboard.config import load_settings
 from cm_dashboard.db import connect_database, create_database
+from cm_dashboard.importing.accepted_issues import coverage_fingerprint
 from cm_dashboard.importing.pipeline import (
     DatabaseRebuildRequiredError,
+    ImportBatchError,
     import_source_folder,
     rebuild_database,
 )
@@ -78,7 +80,13 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "rebuild":
         settings = load_settings(source_path=args.source, database_path=args.db)
-        results = rebuild_database(settings.source_path, settings.database_path)
+        try:
+            results = rebuild_database(settings.source_path, settings.database_path)
+        except ImportBatchError as exc:
+            print(f"error: {exc}")
+            for result in exc.failed_results:
+                print(f"error: {result.file_name}: {result.error_message}")
+            return 2
         print(f"rebuilt files: {len(results)}")
         print(f"database: {settings.database_path}")
         return 0
@@ -93,7 +101,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"issues: {len(issues)}")
         for issue in issues:
             print(f"{issue.severity}: {issue.code}: {issue.message}")
-        return 0
+            fingerprint = coverage_fingerprint(issue)
+            if fingerprint is not None:
+                print(f"  fingerprint: {fingerprint}")
+        return 1 if any(issue.severity == "error" for issue in issues) else 0
 
     parser.error(f"Unknown command: {args.command}")
 

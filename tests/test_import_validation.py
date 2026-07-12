@@ -1,17 +1,27 @@
+import json
+
+import pytest
+
 from cm_dashboard.db import create_database
+from cm_dashboard.importing.accepted_issues import (
+    coverage_fingerprint,
+    load_accepted_fingerprints,
+)
 from cm_dashboard.importing.filename import require_parsed_filename
 from cm_dashboard.importing.pipeline import import_source_file, import_source_folder
 from cm_dashboard.importing.source_scan import SourceFile
 from cm_dashboard.importing.validation import (
+    ValidationIssue,
     persist_validation_issues,
     refresh_validation_issues,
     validate_database,
     validate_source_folder,
 )
-from tests.fixtures import require_fixture_path, source_root
+from tests.fixtures import require_fixture_path, requires_full_source, source_root
 from tests.synthetic_sources import write_article_source, write_shipment_source
 
 
+@requires_full_source
 def test_validate_source_folder_reports_known_missing_coverage_examples() -> None:
     issues = validate_source_folder(source_root(), check_headers=False)
     missing = {
@@ -50,9 +60,16 @@ def test_validate_database_reports_duplicates_unmatched_and_grouping_summary(tmp
 
 def test_persist_validation_issues_stores_issues(tmp_path) -> None:
     connection = create_database(tmp_path / "cardmarket.db")
-    issues = validate_source_folder(source_root(), check_headers=False)
+    issues = tuple(
+        ValidationIssue(
+            severity="warning",
+            code="missing_period_coverage",
+            message=f"Synthetic coverage issue {index}",
+        )
+        for index in range(3)
+    )
 
-    stored_count = persist_validation_issues(connection, issues[:3])
+    stored_count = persist_validation_issues(connection, issues)
 
     assert stored_count == 3
     assert connection.execute("SELECT COUNT(*) FROM import_issues").fetchone()[0] == 3
@@ -85,6 +102,57 @@ def test_refresh_validation_issues_is_repeatable_and_preserves_import_failures(t
         "SELECT COUNT(*) FROM import_issues WHERE code != 'import_failed'"
     ).fetchone()[0]
     assert derived_count == second_count
+
+
+def test_acknowledged_coverage_gaps_are_hidden_and_summarized(tmp_path) -> None:
+    source = tmp_path / "source"
+    write_article_source(
+        source / "PURCHASED ARTICLES-BYPAYMENTDATE-2026-08-01_2026-08-31.CSV"
+    )
+    connection = create_database(tmp_path / "cardmarket.db")
+    import_source_folder(connection, source)
+
+    open_issues = validate_database(connection)
+    gap = next(issue for issue in open_issues if issue.code == "missing_period_coverage")
+    fingerprint = coverage_fingerprint(gap)
+    assert fingerprint is not None
+
+    (tmp_path / "accepted_issues.json").write_text(
+        json.dumps(
+            {"accepted_coverage": [{"fingerprint": fingerprint, "note": "kein Export"}]}
+        ),
+        encoding="utf-8",
+    )
+    acknowledged_issues = validate_database(connection)
+
+    remaining_fingerprints = {
+        coverage_fingerprint(issue)
+        for issue in acknowledged_issues
+        if issue.code == "missing_period_coverage"
+    }
+    assert fingerprint not in remaining_fingerprints
+    summary = next(
+        issue
+        for issue in acknowledged_issues
+        if issue.code == "accepted_period_coverage_summary"
+    )
+    assert summary.severity == "info"
+    assert "1 known coverage gaps" in summary.message
+
+
+def test_load_accepted_fingerprints_rejects_malformed_files(tmp_path) -> None:
+    path = tmp_path / "accepted_issues.json"
+
+    assert load_accepted_fingerprints(path) == frozenset()
+    assert load_accepted_fingerprints(None) == frozenset()
+
+    path.write_text("{not json", encoding="utf-8")
+    with pytest.raises(ValueError, match="Invalid JSON"):
+        load_accepted_fingerprints(path)
+
+    path.write_text(json.dumps({"accepted_coverage": [{"note": "no fingerprint"}]}))
+    with pytest.raises(ValueError, match="fingerprint"):
+        load_accepted_fingerprints(path)
 
 
 def test_validation_reports_article_and_shipment_total_mismatches(tmp_path) -> None:

@@ -72,6 +72,11 @@ Rest des Ordners weiter importiert wird. Details stehen in
   --host 127.0.0.1 --port 8000 --no-access-log
 ```
 
+Der Standard-Datenbankpfad ist `data\cardmarket.db` im aktuellen Arbeitsverzeichnis. Ein
+anderer Pfad wird ueber die Umgebungsvariable `CM_DASHBOARD_DB` gesetzt; fuer die
+CLI-Befehle gilt zusaetzlich `CM_DASHBOARD_SOURCE` fuer den Quellordner. Explizite
+`--source`/`--db`-Argumente haben Vorrang vor den Umgebungsvariablen.
+
 Danach lokal oeffnen:
 
 - `http://127.0.0.1:8000/` - Kennzahlen, Filter und Monatsdiagramm
@@ -95,6 +100,12 @@ Authentifizierung und darf deshalb nicht an `0.0.0.0` oder ins Internet gebunden
   Waehrungen muss ein fachliches Umrechnungsmodell festgelegt werden.
 - Der CSV-Report ist eine Artikelwert-/Monatsaggregation. Er ist kein Steuer-, Gewinn- oder
   Inventarreport.
+- Die Spalte `total` im CSV-Report ist ein Bruttovolumen (Kauf- plus Verkaufssummen der
+  gefilterten Zeilen), keine Saldo- oder Gewinngroesse. Kauf- und Verkaufssummen stehen
+  getrennt in `purchase_total` und `sales_total`. Die Spalte `net_total` ist der Saldo
+  (Verkaeufe minus Kaeufe); in Monatszeilen ist sie je Richtung vorzeichenbehaftet
+  (Verkaeufe positiv, Kaeufe negativ). Auch `net_total` ist keine Gewinngroesse, weil
+  Gebuehren, Versand und Bestandsveraenderungen nicht enthalten sind.
 
 ## Validierung verstehen
 
@@ -109,6 +120,26 @@ Dateifehler und fehlende Shipment-Events auf. Typische Codes:
 
 Warnungen sind zu pruefen, aber nicht automatisch Datenverlust. Fehler beim Lesen,
 Normalisieren oder bei geaenderten Quelldateien erfordern eine Korrektur bzw. einen Neuaufbau.
+
+Bekannte, dauerhafte Abdeckungsluecken (Exporte, die nie existiert haben) koennen quittiert
+werden, damit sie das Validierungsergebnis nicht dauerhaft verrauschen: `validate` gibt fuer
+jede `missing_period_coverage`-Warnung einen `fingerprint` aus. Dieser wird in die Datei
+`accepted_issues.json` neben der Datenbank eingetragen:
+
+```json
+{
+  "accepted_coverage": [
+    {
+      "fingerprint": "missing_period_coverage|PURCHASED|ARTICLES|PURCHASEDATE|2024-06-01|2024-06-30",
+      "note": "Export wurde 2024 nie erzeugt"
+    }
+  ]
+}
+```
+
+Quittierte Luecken werden ausgeblendet und als eine Info-Zeile
+(`accepted_period_coverage_summary`) zusammengefasst. Die Datei ist unabhaengig von der
+Datenbank und ueberlebt einen `rebuild`; neue, nicht quittierte Luecken erscheinen weiterhin.
 
 ## Entwicklung und Verifikation
 
@@ -130,7 +161,9 @@ Datenbankaufbau startet mit:
 ```
 
 GitHub Actions fuehrt fuer Python 3.12 Linting, Typpruefung, Tests, Dependency-Audit und
-Distributionspruefung ohne Zugriff auf private Exporte aus.
+Distributionspruefung ohne Zugriff auf private Exporte aus. Tests, die den privaten
+Vollbestand voraussetzen, laufen nur mit `CM_DASHBOARD_RUN_FULL_SOURCE_TESTS=1` und werden
+sonst uebersprungen.
 
 ## Datenschutz und Betrieb
 
@@ -151,3 +184,7 @@ Nicht enthalten sind Web-Uploads, asynchrone Jobs, Mehrbenutzerbetrieb, Rollen, 
 automatische Backups, PDF/Excel-Reports, Steuerlogik, FIFO/Inventar und belastbare Einzelmargen.
 Weitere fachlich offene Punkte stehen im
 [Projekt-Audit](OUTPUT/PROJECT_AUDIT_AND_OPTIMIZATION.md).
+
+## Lizenz
+
+Dieses Projekt steht unter der [MIT-Lizenz](LICENSE).

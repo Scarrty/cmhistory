@@ -45,6 +45,47 @@ def test_read_xls_preserves_unicode_text() -> None:
     assert all("\ufffd" not in value for value in private_street_values)
 
 
+def test_read_csv_preserves_newlines_inside_quoted_fields(tmp_path) -> None:
+    path = tmp_path / "SOLD ARTICLES-BYPURCHASEDATE-2026-08-01_2026-08-31.CSV"
+    path.write_text(
+        'Shipment nr.;Comments\n1001;"line1\nline2"\n1002;plain\n',
+        encoding="utf-8",
+    )
+
+    sheet = read_spreadsheet(path)
+
+    assert sheet.row_count == 2
+    assert sheet.rows[0] == ("1001", "line1\nline2")
+    assert sheet.rows[1] == ("1002", "plain")
+
+
+def test_read_csv_rejects_rows_with_extra_non_empty_cells(tmp_path) -> None:
+    path = tmp_path / "SOLD ARTICLES-BYPURCHASEDATE-2026-08-01_2026-08-31.CSV"
+    path.write_text(
+        "Shipment nr.;Comments\n1001;ok\n1002;broken;overflow\n",
+        encoding="utf-8",
+    )
+
+    try:
+        read_spreadsheet(path)
+    except ValueError as exc:
+        assert "Row 3" in str(exc)
+    else:
+        raise AssertionError("Expected overlong row to raise")
+
+
+def test_read_csv_tolerates_trailing_empty_cells(tmp_path) -> None:
+    path = tmp_path / "SOLD ARTICLES-BYPURCHASEDATE-2026-08-01_2026-08-31.CSV"
+    path.write_text(
+        "Shipment nr.;Comments\n1001;ok;\n",
+        encoding="utf-8",
+    )
+
+    sheet = read_spreadsheet(path)
+
+    assert sheet.rows == (("1001", "ok"),)
+
+
 def test_unsupported_extension_is_explicit() -> None:
     try:
         read_spreadsheet("README.md")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import io
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -44,8 +45,8 @@ def _read_excel(path: Path) -> WorksheetData:
     values = sheet.to_python(skip_empty_area=False)
     headers = _normalize_headers(values[0] if values else [])
     rows = tuple(
-        _pad_row(row, len(headers))
-        for row in values[1:]
+        _pad_row(row, len(headers), row_number=row_number)
+        for row_number, row in enumerate(values[1:], start=2)
         if not _is_blank_row(row)
     )
     return WorksheetData(
@@ -60,7 +61,9 @@ def _read_csv(path: Path) -> WorksheetData:
     text = _read_csv_text(path)
     sample = text[:4096]
     delimiter = _detect_csv_delimiter(sample)
-    reader = csv.reader(text.splitlines(), delimiter=delimiter)
+    # io.StringIO keeps line endings, so csv.reader can reassemble quoted
+    # fields that span multiple lines without dropping the embedded newline.
+    reader = csv.reader(io.StringIO(text), delimiter=delimiter)
     try:
         raw_headers = next(reader)
     except StopIteration:
@@ -68,8 +71,8 @@ def _read_csv(path: Path) -> WorksheetData:
 
     headers = _normalize_headers(raw_headers)
     rows = tuple(
-        _pad_row(row, len(headers))
-        for row in reader
+        _pad_row(row, len(headers), row_number=row_number)
+        for row_number, row in enumerate(reader, start=2)
         if not _is_blank_row(row)
     )
     return WorksheetData(
@@ -100,9 +103,17 @@ def _normalize_headers(values: Sequence[Any]) -> tuple[str, ...]:
     return tuple("" if value is None else str(value).strip() for value in values)
 
 
-def _pad_row(values: Sequence[Any], expected_length: int) -> tuple[Any, ...]:
-    if len(values) >= expected_length:
+def _pad_row(values: Sequence[Any], expected_length: int, *, row_number: int) -> tuple[Any, ...]:
+    if len(values) > expected_length:
+        extra_values = values[expected_length:]
+        if any(str(value).strip() != "" for value in extra_values):
+            raise ValueError(
+                f"Row {row_number} has {len(values)} cells but only "
+                f"{expected_length} header columns"
+            )
         return tuple(values[:expected_length])
+    if len(values) == expected_length:
+        return tuple(values)
     return tuple(values) + ("",) * (expected_length - len(values))
 
 

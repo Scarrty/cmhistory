@@ -137,7 +137,8 @@ def fetch_shipments(
         LEFT JOIN import_files
             ON import_files.import_file_id = shipment_events.source_import_file_id
         {where}
-        ORDER BY shipments.order_id DESC, shipments.shipment_id DESC
+        ORDER BY CAST(shipments.order_id AS INTEGER) DESC, shipments.order_id DESC,
+                 shipments.shipment_id DESC
         LIMIT ? OFFSET ?
         """,
         params,
@@ -311,6 +312,7 @@ def period_report_rows(
             "purchase_total": totals["purchase_total"],
             "sales_total": totals["sales_total"],
             "total": totals["combined_total"],
+            "net_total": totals["sales_total"] - totals["purchase_total"],
         }
     ]
     rows.extend(
@@ -324,6 +326,7 @@ def period_report_rows(
             "purchase_total": "",
             "sales_total": "",
             "total": row["total"],
+            "net_total": row["total"] if row["direction"] == "SOLD" else -row["total"],
         }
         for row in monthly_totals(connection, filters)
     )

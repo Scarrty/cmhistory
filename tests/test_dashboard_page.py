@@ -1,10 +1,10 @@
-from fastapi.testclient import TestClient
+
 
 from cm_dashboard.db import create_database
 from cm_dashboard.importing.pipeline import import_source_file
 from cm_dashboard.importing.source_scan import SourceFile
-from cm_dashboard.web.app import create_app
 from tests.fixtures import require_fixture_path
+from tests.webclient import make_client
 
 
 def test_dashboard_page_renders_filtered_kpis_and_monthly_chart(tmp_path) -> None:
@@ -13,7 +13,7 @@ def test_dashboard_page_renders_filtered_kpis_and_monthly_chart(tmp_path) -> Non
     for key in ("tolerant_xls", "unicode_shipment"):
         path = require_fixture_path(key)
         import_source_file(connection, SourceFile(path=path, metadata=_metadata(path)))
-    client = TestClient(create_app(database_path=database_path))
+    client = make_client(database_path)
 
     response = client.get("/?start_date=2016-06-01&end_date=2016-06-30")
 

@@ -1,3 +1,5 @@
+BEGIN IMMEDIATE;
+
 CREATE TABLE IF NOT EXISTS import_files (
     import_file_id INTEGER PRIMARY KEY,
     original_path TEXT NOT NULL UNIQUE,
@@ -145,3 +147,7 @@ CREATE INDEX IF NOT EXISTS idx_article_lines_order_id
 
 CREATE INDEX IF NOT EXISTS idx_import_issues_file_severity
     ON import_issues(import_file_id, severity);
+
+INSERT OR IGNORE INTO schema_migrations (migration_id) VALUES ('001_init.sql');
+
+COMMIT;

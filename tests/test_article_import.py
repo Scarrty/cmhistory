@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from cm_dashboard.db import create_database
 from cm_dashboard.importing.article_import import import_article_sheet
 from cm_dashboard.importing.filename import require_parsed_filename
@@ -52,7 +54,7 @@ def test_import_article_sheet_keeps_multiple_observed_labels_for_one_product(tmp
         "SOLD ARTICLES-BYPURCHASEDATE-2026-01-01_2026-01-31.CSV"
     )
     sheet = WorksheetData(
-        path="in-memory.csv",
+        path=Path("in-memory.csv"),
         sheet_name="CSV",
         headers=(
             "Shipment nr.",
@@ -143,7 +145,7 @@ def test_import_article_sheet_preserves_repeated_identical_positions(tmp_path) -
         "",
     )
     sheet = WorksheetData(
-        path="in-memory.csv",
+        path=Path("in-memory.csv"),
         sheet_name="CSV",
         headers=(
             "Shipment nr.",

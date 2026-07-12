@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from cm_dashboard.db import create_database
 from cm_dashboard.importing.article_import import (
     import_article_sheet,
@@ -63,7 +65,7 @@ def test_unmatched_article_orders_are_reported_as_import_issues(tmp_path) -> Non
         "SOLD ARTICLES-BYPURCHASEDATE-2026-01-01_2026-01-31.CSV"
     )
     sheet = WorksheetData(
-        path="in-memory.csv",
+        path=Path("in-memory.csv"),
         sheet_name="CSV",
         headers=(
             "Shipment nr.",

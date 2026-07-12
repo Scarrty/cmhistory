@@ -6,9 +6,20 @@ from pathlib import Path
 
 import pytest
 
-from cm_dashboard.config import PROJECT_ROOT, normalize_path
+from cm_dashboard.config import normalize_path
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 SOURCE_ROOT_ENV = "CM_DASHBOARD_SOURCE_ROOT"
+FULL_SOURCE_TESTS_ENV = "CM_DASHBOARD_RUN_FULL_SOURCE_TESTS"
+
+requires_full_source = pytest.mark.skipif(
+    os.environ.get(FULL_SOURCE_TESTS_ENV) != "1",
+    reason=(
+        f"Set {FULL_SOURCE_TESTS_ENV}=1 to run tests that assert the "
+        "private full source folder inventory."
+    ),
+)
 
 
 @dataclass(frozen=True)
@@ -71,7 +82,7 @@ def source_root() -> Path:
     configured_root = os.environ.get(SOURCE_ROOT_ENV)
     if configured_root:
         return normalize_path(configured_root)
-    return PROJECT_ROOT.resolve(strict=False)
+    return REPO_ROOT
 
 
 def fixture_path(key: str) -> Path:

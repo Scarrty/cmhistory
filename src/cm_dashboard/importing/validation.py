@@ -7,6 +7,10 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
+from cm_dashboard.importing.accepted_issues import (
+    accepted_fingerprints_for,
+    coverage_fingerprint,
+)
 from cm_dashboard.importing.filename import (
     DateBasis,
     Direction,
@@ -35,6 +39,7 @@ class ValidationIssue:
 
 
 DERIVED_VALIDATION_CODES = {
+    "accepted_period_coverage_summary",
     "article_shipment_mismatch",
     "conflicting_shipment_event",
     "duplicate_article_source_overlap",
@@ -75,9 +80,17 @@ def validate_source_folder(
     return tuple(issues)
 
 
-def validate_database(connection: sqlite3.Connection) -> tuple[ValidationIssue, ...]:
+def validate_database(
+    connection: sqlite3.Connection,
+    *,
+    accepted_fingerprints: frozenset[str] | None = None,
+) -> tuple[ValidationIssue, ...]:
+    if accepted_fingerprints is None:
+        accepted_fingerprints = accepted_fingerprints_for(connection)
     issues: list[ValidationIssue] = []
-    issues.extend(_database_coverage_issues(connection))
+    issues.extend(
+        _filter_accepted_coverage(_database_coverage_issues(connection), accepted_fingerprints)
+    )
     issues.extend(_unmatched_article_issues(connection))
     duplicate_issue = _duplicate_raw_article_summary_issue(connection)
     if duplicate_issue is not None:
@@ -145,6 +158,34 @@ def refresh_validation_issues(
             ),
         )
     return len(resolved_issues)
+
+
+def _filter_accepted_coverage(
+    issues: tuple[ValidationIssue, ...],
+    accepted_fingerprints: frozenset[str],
+) -> tuple[ValidationIssue, ...]:
+    if not accepted_fingerprints:
+        return issues
+    remaining: list[ValidationIssue] = []
+    accepted_count = 0
+    for issue in issues:
+        fingerprint = coverage_fingerprint(issue)
+        if fingerprint is not None and fingerprint in accepted_fingerprints:
+            accepted_count += 1
+            continue
+        remaining.append(issue)
+    if accepted_count:
+        remaining.append(
+            ValidationIssue(
+                severity="info",
+                code="accepted_period_coverage_summary",
+                message=(
+                    f"{accepted_count} known coverage gaps are acknowledged in "
+                    "accepted_issues.json and hidden from this report"
+                ),
+            )
+        )
+    return tuple(remaining)
 
 
 def _issues_for_headers(

@@ -49,6 +49,7 @@ def test_initial_schema_has_required_indexes(tmp_path) -> None:
         "idx_raw_shipment_rows_resolved_order_id",
         "idx_article_lines_filters",
         "idx_article_lines_order_id",
+        "idx_article_lines_shipment_id",
         "idx_import_issues_file_severity",
     }.issubset(indexes)
 
@@ -61,6 +62,27 @@ def test_migrations_are_idempotent(tmp_path) -> None:
     applied = connection.execute("SELECT migration_id FROM schema_migrations").fetchall()
     expected = sorted(path.name for path in MIGRATIONS_PATH.glob("*.sql"))
     assert [row["migration_id"] for row in applied] == expected
+
+
+def test_migration_scripts_record_themselves_atomically(tmp_path) -> None:
+    connection = sqlite3.connect(tmp_path / "fresh.db")
+    connection.execute(
+        """
+        CREATE TABLE schema_migrations (
+            migration_id TEXT PRIMARY KEY,
+            applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    for migration in sorted(MIGRATIONS_PATH.glob("*.sql")):
+        connection.executescript(migration.read_text(encoding="utf-8"))
+
+        recorded = connection.execute(
+            "SELECT 1 FROM schema_migrations WHERE migration_id = ?",
+            (migration.name,),
+        ).fetchone()
+        assert recorded is not None, f"{migration.name} must record itself in its transaction"
 
 
 def test_connections_enable_foreign_keys() -> None:

@@ -2,7 +2,7 @@ from pathlib import Path
 
 from cm_dashboard.importing.filename import DateBasis, Direction, ExportEntity
 from cm_dashboard.importing.source_scan import scan_source_files
-from tests.fixtures import source_root
+from tests.fixtures import requires_full_source, source_root
 
 
 def test_scan_finds_importable_files_and_ignores_documentation(tmp_path: Path) -> None:
@@ -45,6 +45,7 @@ def test_scan_missing_source_path_returns_unknown_issue(tmp_path: Path) -> None:
     assert "not a directory" in report.unknown_files[0].issue.message
 
 
+@requires_full_source
 def test_scan_current_source_folder_matches_review_inventory() -> None:
     report = scan_source_files(source_root())
 

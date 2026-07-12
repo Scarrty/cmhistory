@@ -44,6 +44,15 @@ class SourceFileChangedError(ImportPipelineError):
 class ImportBatchError(ImportPipelineError):
     """Raised when an atomic database rebuild contains failed source files."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        failed_results: tuple[ImportResult, ...] = (),
+    ) -> None:
+        super().__init__(message)
+        self.failed_results = failed_results
+
 
 @dataclass(frozen=True)
 class ImportResult:
@@ -225,7 +234,8 @@ def rebuild_database(
         failed = [result for result in results if result.status == "failed"]
         if failed:
             raise ImportBatchError(
-                f"Database rebuild aborted because {len(failed)} source files failed"
+                f"Database rebuild aborted because {len(failed)} source files failed",
+                failed_results=tuple(failed),
             )
         integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
         foreign_key_errors = connection.execute("PRAGMA foreign_key_check").fetchall()

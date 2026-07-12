@@ -24,39 +24,59 @@ ein anderes System die Änderungen ohne erneute Analyse durchführen kann.
 | **P2** | Robustheit, Wartbarkeit, Betriebssicherheit |
 | **P3** | Stil, Doku, Kleinigkeiten |
 
+## Umsetzungsstand (2026-07-12)
+
+Alle Befunde sind auf diesem Branch umgesetzt; die Detailabschnitte unten dokumentieren
+weiterhin Analyse und Begründung. Die drei zunächst offenen Punkte wurden am 2026-07-12 per
+Maintainer-Interview entschieden und anschließend umgesetzt:
+
+- **P2-16** (Coverage-Warnungen): Entscheidung **Quittierungsdatei**. Bekannte Lücken werden
+  über Fingerprints in `accepted_issues.json` neben der Datenbank quittiert; `validate` gibt
+  die Fingerprints aus, quittierte Lücken werden zu einer Info-Zeile
+  (`accepted_period_coverage_summary`) zusammengefasst. Die Datei überlebt einen `rebuild`.
+- **P3-2** (CSV-Report): Entscheidung **`net_total` ergänzen** (kein Breaking Change).
+  `total` bleibt Bruttovolumen; neue Spalte `net_total` = Verkäufe − Käufe (Periodenzeile)
+  bzw. vorzeichenbehaftet je Richtung (Monatszeilen). Semantik in der README dokumentiert.
+- **P3-5** (Lizenz): Entscheidung **MIT**. `LICENSE`-Datei plus `license`/`license-files`
+  in `pyproject.toml` (Build-Backend auf `setuptools>=77` angehoben für SPDX-Metadaten).
+
+Wichtig für den Betrieb: P1-1 und P2-4 ändern normalisierte Fakten —
+`NORMALIZATION_VERSION` wurde auf 3 erhöht. Bestehende Datenbanken verlangen nach dem
+Update einen einmaligen expliziten `rebuild` (CLI und Web zeigen das an).
+
 ## Übersicht aller Befunde
 
-| ID | Stufe | Bereich | Kurzbeschreibung |
-|---|---|---|---|
-| P0-1 | P0 | Tests/CI | 4 Tests erfordern private Quelldaten und schlagen ohne sie fehl → CI auf main ist rot |
-| P0-2 | P0 | Doku | README-Behauptung „CI läuft ohne private Exporte" ist aktuell falsch |
-| P1-1 | P1 | Import | CSV-Reader zerstört Zeilenumbrüche in quoted Feldern → Dedup CSV/XLS kann versagen |
-| P1-2 | P1 | Web/Import | Modulimport der Web-App erzeugt/migriert die Datenbank als Seiteneffekt |
-| P1-3 | P1 | Konfiguration | `PROJECT_ROOT` zeigt bei installiertem Wheel in die Python-Installation |
-| P1-4 | P1 | Reporting | Sendungen werden lexikografisch statt numerisch nach Order-ID sortiert |
-| P1-5 | P1 | Import | `_pad_row` schneidet überzählige Zellen stumm ab (stiller Datenverlust) |
-| P2-1 | P2 | CLI | `validate` liefert Exit-Code 0 auch bei error-Issues |
-| P2-2 | P2 | CLI | `rebuild` ohne Fehlerbehandlung → nackter Traceback |
-| P2-3 | P2 | DB | Migrationsausführung nicht atomar; Re-Run von 002 zerstört den Startvorgang |
-| P2-4 | P2 | Import | `normalize_bool` liefert `False` statt `None` bei leerem Wert |
-| P2-5 | P2 | Web | `typing._eval_type`-Monkey-Patch (Python-3.14-Workaround) ist fragil und dupliziert |
-| P2-6 | P2 | Web | DB-Pfad der Web-App ist nicht konfigurierbar (kein env var, kein Factory-Start) |
-| P2-7 | P2 | Import | Fortsetzungszeilen vor dem ersten Header werden still verworfen (kein Issue) |
-| P2-8 | P2 | CI | Doppelte CI-Läufe (push+pull_request), veraltete Action-Versionen (Node-20-Warnung) |
-| P2-9 | P2 | Tests | mypy prüft `tests/` nicht (`files = ["src", "scripts"]`) |
-| P2-10 | P2 | Betrieb | `.gitignore` deckt Rebuild-Tempdateien (`.cardmarket.db.*.rebuild`) nicht ab |
-| P2-11 | P2 | Skripte | `verify_mvp.ps1` leert `dist/` nicht → Verifier bricht nach Versionsbump |
-| P2-12 | P2 | DB | Kein Index auf `article_lines.shipment_id` |
-| P2-13 | P2 | Web | `allowed_hosts` enthält `testserver` in der Produktionskonfiguration |
-| P2-14 | P2 | Web | `assert` im Request-Pfad (`shipment_detail`) entfällt unter `python -O` |
-| P2-15 | P2 | Import | `imported_at` wird beim Überschreiben mit Status `failed` nicht zurückgesetzt |
-| P2-16 | P2 | Validierung | `missing_period_coverage`-Warnungen sind nicht quittierbar → Dauerrauschen |
-| P3-1 | P3 | Stil | Fehlerhafte Einrückung der schließenden Klammer in `store_raw_article_rows` |
-| P3-2 | P3 | Doku | Semantik von `combined_total` (Käufe+Verkäufe addiert) klären/umbenennen |
-| P3-3 | P3 | Doku | Dezimal-Heuristik `"1.234"` (Punkt als Tausendertrenner) dokumentieren |
-| P3-4 | P3 | Tests | `synthetic_sources` schreibt CSV-Inhalt unabhängig von der Dateiendung |
-| P3-5 | P3 | Repo | Keine LICENSE-Datei / kein `license`-Feld in `pyproject.toml` |
-| P3-6 | P3 | Web | Kein `/favicon.ico` → 404 bei jedem Browseraufruf |
+| ID | Stufe | Bereich | Kurzbeschreibung | Status |
+|---|---|---|---|---|
+| P0-1 | P0 | Tests/CI | 4 Tests erfordern private Quelldaten und schlagen ohne sie fehl → CI auf main ist rot | ✅ umgesetzt |
+| P0-2 | P0 | Doku | README-Behauptung „CI läuft ohne private Exporte" ist aktuell falsch | ✅ umgesetzt |
+| P1-1 | P1 | Import | CSV-Reader zerstört Zeilenumbrüche in quoted Feldern → Dedup CSV/XLS kann versagen | ✅ umgesetzt |
+| P1-2 | P1 | Web/Import | Modulimport der Web-App erzeugt/migriert die Datenbank als Seiteneffekt | ✅ umgesetzt |
+| P1-3 | P1 | Konfiguration | `PROJECT_ROOT` zeigt bei installiertem Wheel in die Python-Installation | ✅ umgesetzt |
+| P1-4 | P1 | Reporting | Sendungen werden lexikografisch statt numerisch nach Order-ID sortiert | ✅ umgesetzt |
+| P1-5 | P1 | Import | `_pad_row` schneidet überzählige Zellen stumm ab (stiller Datenverlust) | ✅ umgesetzt |
+| P2-1 | P2 | CLI | `validate` liefert Exit-Code 0 auch bei error-Issues | ✅ umgesetzt |
+| P2-2 | P2 | CLI | `rebuild` ohne Fehlerbehandlung → nackter Traceback | ✅ umgesetzt |
+| P2-3 | P2 | DB | Migrationsausführung nicht atomar; Re-Run von 002 zerstört den Startvorgang | ✅ umgesetzt |
+| P2-4 | P2 | Import | `normalize_bool` liefert `False` statt `None` bei leerem Wert | ✅ umgesetzt |
+| P2-5 | P2 | Web | `typing._eval_type`-Monkey-Patch (Python-3.14-Workaround) ist fragil und dupliziert | ✅ umgesetzt (isoliert in `_compat.py`) |
+| P2-6 | P2 | Web | DB-Pfad der Web-App ist nicht konfigurierbar (kein env var, kein Factory-Start) | ✅ umgesetzt |
+| P2-7 | P2 | Import | Fortsetzungszeilen vor dem ersten Header werden still verworfen (kein Issue) | ✅ umgesetzt |
+| P2-8 | P2 | CI | Doppelte CI-Läufe (push+pull_request), veraltete Action-Versionen (Node-20-Warnung) | ✅ umgesetzt |
+| P2-9 | P2 | Tests | mypy prüft `tests/` nicht (`files = ["src", "scripts"]`) | ✅ umgesetzt |
+| P2-10 | P2 | Betrieb | `.gitignore` deckt Rebuild-Tempdateien (`.cardmarket.db.*.rebuild`) nicht ab | ✅ umgesetzt |
+| P2-11 | P2 | Skripte | `verify_mvp.ps1` leert `dist/` nicht → Verifier bricht nach Versionsbump | ✅ umgesetzt |
+| P2-12 | P2 | DB | Kein Index auf `article_lines.shipment_id` | ✅ umgesetzt (Migration 004) |
+| P2-13 | P2 | Web | `allowed_hosts` enthält `testserver` in der Produktionskonfiguration | ✅ umgesetzt |
+| P2-14 | P2 | Web | `assert` im Request-Pfad (`shipment_detail`) entfällt unter `python -O` | ✅ umgesetzt |
+| P2-15 | P2 | Import | `imported_at` wird beim Überschreiben mit Status `failed` nicht zurückgesetzt | ✅ umgesetzt |
+| P2-16 | P2 | Validierung | `missing_period_coverage`-Warnungen sind nicht quittierbar → Dauerrauschen | ✅ umgesetzt (Quittierungsdatei) |
+| P3-1 | P3 | Stil | Fehlerhafte Einrückung der schließenden Klammer in `store_raw_article_rows` | ✅ umgesetzt |
+| P3-2 | P3 | Doku | Semantik von `combined_total` (Käufe+Verkäufe addiert) klären/umbenennen | ✅ umgesetzt (dokumentiert + `net_total`) |
+| P3-3 | P3 | Doku | Dezimal-Heuristik `"1.234"` (Punkt als Tausendertrenner) dokumentieren | ✅ umgesetzt |
+| P3-4 | P3 | Tests | `synthetic_sources` schreibt CSV-Inhalt unabhängig von der Dateiendung | ✅ umgesetzt |
+| P3-5 | P3 | Repo | Keine LICENSE-Datei / kein `license`-Feld in `pyproject.toml` | ✅ umgesetzt (MIT) |
+| P3-6 | P3 | Web | Kein `/favicon.ico` → 404 bei jedem Browseraufruf | ✅ umgesetzt |
 
 ---
 

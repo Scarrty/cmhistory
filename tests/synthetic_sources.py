@@ -83,6 +83,8 @@ def _write_source(
     metadata: ParsedFilename,
     rows: Sequence[Mapping[str, str]],
 ) -> Path:
+    if path.suffix.lower() != ".csv":
+        raise ValueError(f"Synthetic sources are written as CSV; got {path.name}")
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(

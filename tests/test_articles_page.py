@@ -1,13 +1,12 @@
 from html import escape
 from urllib.parse import urlencode
 
-from fastapi.testclient import TestClient
-
 from cm_dashboard.db import create_database
 from cm_dashboard.importing.pipeline import import_source_file
 from cm_dashboard.importing.source_scan import SourceFile
-from cm_dashboard.web.app import _mask_text, create_app
+from cm_dashboard.web.app import _mask_text
 from tests.fixtures import require_fixture_path
+from tests.webclient import make_client
 
 
 def test_articles_page_filters_articles_and_links_to_shipments(tmp_path) -> None:
@@ -26,7 +25,7 @@ def test_articles_page_filters_articles_and_links_to_shipments(tmp_path) -> None
         LIMIT 1
         """
     ).fetchone()
-    client = TestClient(create_app(database_path=database_path))
+    client = make_client(database_path)
 
     query = urlencode(
         {
