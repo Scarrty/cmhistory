@@ -10,6 +10,7 @@ REQUIRED_WHEEL_FILES = {
     "cm_dashboard/migrations/001_init.sql",
     "cm_dashboard/migrations/002_import_normalization_version.sql",
     "cm_dashboard/migrations/003_directional_shipment_identity.sql",
+    "cm_dashboard/migrations/004_article_lines_shipment_index.sql",
     "cm_dashboard/web/static/app.css",
     "cm_dashboard/web/static/app.js",
     "cm_dashboard/web/templates/base.html",

@@ -49,10 +49,14 @@ def apply_migrations(
         migration_id = migration.name
         if migration_id in applied:
             continue
+        # Convention: each script wraps its statements in BEGIN IMMEDIATE/COMMIT
+        # and records its own migration_id inside that transaction, because
+        # executescript commits any pending transaction and would otherwise
+        # leave a crash window between the script and a separate record insert.
         with connection:
             connection.executescript(migration.read_text(encoding="utf-8"))
             connection.execute(
-                "INSERT INTO schema_migrations (migration_id) VALUES (?)",
+                "INSERT OR IGNORE INTO schema_migrations (migration_id) VALUES (?)",
                 (migration_id,),
             )
 

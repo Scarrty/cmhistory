@@ -82,6 +82,9 @@ CREATE INDEX idx_article_lines_filters
 CREATE INDEX idx_article_lines_order_id
     ON article_lines(order_id);
 
+INSERT OR IGNORE INTO schema_migrations (migration_id)
+VALUES ('003_directional_shipment_identity.sql');
+
 COMMIT;
 
 PRAGMA foreign_keys = ON;
