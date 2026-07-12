@@ -100,6 +100,9 @@ Authentifizierung und darf deshalb nicht an `0.0.0.0` oder ins Internet gebunden
   Waehrungen muss ein fachliches Umrechnungsmodell festgelegt werden.
 - Der CSV-Report ist eine Artikelwert-/Monatsaggregation. Er ist kein Steuer-, Gewinn- oder
   Inventarreport.
+- Die Spalte `total` im CSV-Report ist ein Bruttovolumen (Kauf- plus Verkaufssummen der
+  gefilterten Zeilen), keine Saldo- oder Gewinngroesse. Kauf- und Verkaufssummen stehen
+  getrennt in `purchase_total` und `sales_total`.
 
 ## Validierung verstehen
 

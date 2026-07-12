@@ -31,6 +31,22 @@ def import_shipment_sheet(
     imported_count = 0
     for row in resolve_shipment_groups(sheet):
         if not row.is_header_row:
+            if row.resolved_order_id is None:
+                connection.execute(
+                    """
+                    INSERT INTO import_issues (
+                        import_file_id, severity, code, message, source_row_number
+                    ) VALUES (?, 'warning', 'orphan_shipment_row', ?, ?)
+                    """,
+                    (
+                        import_file_id,
+                        (
+                            f"Continuation row {row.source_row_number} has no preceding "
+                            "shipment header and was not imported"
+                        ),
+                        row.source_row_number,
+                    ),
+                )
             continue
         _import_shipment_header(
             connection,

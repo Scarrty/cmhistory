@@ -137,6 +137,44 @@ def test_import_shipment_sheet_uses_commission_for_sold_shipments(tmp_path) -> N
     assert shipment["trustee_service_fee"] is None
 
 
+def test_import_shipment_sheet_reports_orphan_continuation_rows(tmp_path) -> None:
+    connection = create_database(tmp_path / "cardmarket.db")
+    metadata = require_parsed_filename(
+        "SOLD SHIPMENTS-BYPAYMENTDATE-2026-01-01_2026-01-31.XLS"
+    )
+    sheet = WorksheetData(
+        path=Path("in-memory.xls"),
+        sheet_name="Worksheet",
+        headers=("OrderID", "Username", "Date of Payment", "Description"),
+        rows=(
+            ("", "", "", "1x Orphan Card"),
+            ("1", "buyer", "2026-01-01 10:00:00", "1x Card"),
+        ),
+    )
+    import_file_id = upsert_import_file(
+        connection,
+        path=__file__,
+        metadata=metadata,
+        sheet_name=sheet.sheet_name,
+        row_count=sheet.row_count,
+    )
+
+    imported_count = import_shipment_sheet(
+        connection,
+        import_file_id=import_file_id,
+        sheet=sheet,
+        metadata=metadata,
+    )
+
+    assert imported_count == 1
+    issue = connection.execute(
+        "SELECT * FROM import_issues WHERE code = 'orphan_shipment_row'"
+    ).fetchone()
+    assert issue is not None
+    assert issue["source_row_number"] == 2
+    assert "no preceding" in issue["message"]
+
+
 def test_import_shipment_sheet_reports_missing_event_dates_without_crashing(tmp_path) -> None:
     connection = create_database(tmp_path / "cardmarket.db")
     metadata = require_parsed_filename(
