@@ -1,10 +1,10 @@
-from fastapi.testclient import TestClient
+
 
 from cm_dashboard.db import create_database
 from cm_dashboard.importing.pipeline import import_source_file
 from cm_dashboard.importing.source_scan import SourceFile
-from cm_dashboard.web.app import create_app
 from tests.fixtures import require_fixture_path
+from tests.webclient import make_client
 
 
 def test_product_detail_page_shows_labels_totals_and_article_lines(tmp_path) -> None:
@@ -42,7 +42,7 @@ def test_product_detail_page_shows_labels_totals_and_article_lines(tmp_path) -> 
             (product["product_id"],),
         ).fetchall()
     ]
-    client = TestClient(create_app(database_path=database_path))
+    client = make_client(database_path)
 
     response = client.get(f"/products/{product['product_id']}")
 
@@ -64,7 +64,7 @@ def test_product_detail_page_shows_labels_totals_and_article_lines(tmp_path) -> 
 def test_product_detail_page_returns_404_for_unknown_product(tmp_path) -> None:
     database_path = tmp_path / "cardmarket.db"
     create_database(database_path)
-    client = TestClient(create_app(database_path=database_path))
+    client = make_client(database_path)
 
     response = client.get("/products/unknown-product")
 

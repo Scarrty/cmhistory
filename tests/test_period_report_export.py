@@ -1,13 +1,11 @@
 import csv
 from io import StringIO
 
-from fastapi.testclient import TestClient
-
 from cm_dashboard.db import create_database
 from cm_dashboard.importing.pipeline import import_source_file
 from cm_dashboard.importing.source_scan import SourceFile
-from cm_dashboard.web.app import create_app
 from tests.fixtures import require_fixture_path
+from tests.webclient import make_client
 
 
 def test_period_report_csv_uses_filters_and_expected_headers(tmp_path) -> None:
@@ -15,7 +13,7 @@ def test_period_report_csv_uses_filters_and_expected_headers(tmp_path) -> None:
     connection = create_database(database_path)
     path = require_fixture_path("tolerant_xls")
     import_source_file(connection, SourceFile(path=path, metadata=_metadata(path)))
-    client = TestClient(create_app(database_path=database_path))
+    client = make_client(database_path)
 
     response = client.get(
         "/reports/period.csv?start_date=2016-06-01&end_date=2016-06-30"

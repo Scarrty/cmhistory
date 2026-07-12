@@ -13,6 +13,7 @@ REQUIRED_WHEEL_FILES = {
     "cm_dashboard/migrations/004_article_lines_shipment_index.sql",
     "cm_dashboard/web/static/app.css",
     "cm_dashboard/web/static/app.js",
+    "cm_dashboard/web/static/favicon.svg",
     "cm_dashboard/web/templates/base.html",
     "cm_dashboard/web/templates/dashboard.html",
 }

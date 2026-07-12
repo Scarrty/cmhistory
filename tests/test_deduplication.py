@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from cm_dashboard.importing.deduplication import (
     article_business_key,
     article_business_key_string,
@@ -104,7 +106,7 @@ def test_repeated_identical_rows_get_distinct_occurrence_keys() -> None:
     headers = tuple(row)
     values = tuple(row.values())
     sheet = WorksheetData(
-        path="synthetic.csv",
+        path=Path("synthetic.csv"),
         sheet_name="CSV",
         headers=headers,
         rows=(values, values),

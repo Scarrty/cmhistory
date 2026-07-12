@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from cm_dashboard import cli
+import cm_dashboard.cli as cli
 from cm_dashboard.importing.pipeline import ImportBatchError, ImportResult
 from cm_dashboard.importing.validation import ValidationIssue
 

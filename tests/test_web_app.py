@@ -8,6 +8,7 @@ from cm_dashboard.db import connect_database, create_database
 from cm_dashboard.importing.filename import require_parsed_filename
 from cm_dashboard.importing.raw_store import upsert_import_file
 from cm_dashboard.web.app import create_app
+from tests.webclient import make_client
 
 
 def test_importing_web_app_module_creates_no_database(tmp_path, monkeypatch) -> None:
@@ -23,7 +24,7 @@ def test_importing_web_app_module_creates_no_database(tmp_path, monkeypatch) -> 
 
 
 def test_web_app_starts_and_serves_base_route(tmp_path) -> None:
-    client = TestClient(create_app(database_path=tmp_path / "cardmarket.db"))
+    client = make_client(tmp_path / "cardmarket.db")
 
     response = client.get("/")
 
@@ -36,7 +37,7 @@ def test_web_app_starts_and_serves_base_route(tmp_path) -> None:
 
 
 def test_web_app_serves_static_css(tmp_path) -> None:
-    client = TestClient(create_app(database_path=tmp_path / "cardmarket.db"))
+    client = make_client(tmp_path / "cardmarket.db")
 
     response = client.get("/static/app.css")
 
@@ -46,7 +47,7 @@ def test_web_app_serves_static_css(tmp_path) -> None:
 
 
 def test_web_app_rejects_invalid_filter_values(tmp_path) -> None:
-    client = TestClient(create_app(database_path=tmp_path / "cardmarket.db"))
+    client = make_client(tmp_path / "cardmarket.db")
 
     assert client.get("/?direction=invalid").status_code == 422
     assert client.get("/?date_basis=invalid").status_code == 422
@@ -65,7 +66,7 @@ def test_web_app_rejects_invalid_filter_values(tmp_path) -> None:
 
 
 def test_article_page_retains_advanced_filter_values(tmp_path) -> None:
-    client = TestClient(create_app(database_path=tmp_path / "cardmarket.db"))
+    client = make_client(tmp_path / "cardmarket.db")
 
     response = client.get(
         "/articles?currency=eur&min_amount=1.25&max_quantity=4"
@@ -96,7 +97,7 @@ def test_article_pages_expose_all_filtered_rows(tmp_path) -> None:
     )
     connection.commit()
     connection.close()
-    client = TestClient(create_app(database_path=database_path))
+    client = make_client(database_path)
 
     first_page = client.get("/articles?direction=SOLD")
     second_page = client.get("/articles?direction=SOLD&page=2")
@@ -110,8 +111,15 @@ def test_article_pages_expose_all_filtered_rows(tmp_path) -> None:
     assert "order-0000" in second_page.text
 
 
-def test_web_app_sets_local_security_headers_and_rejects_unknown_hosts(tmp_path) -> None:
+def test_default_allowed_hosts_exclude_the_test_host(tmp_path) -> None:
     client = TestClient(create_app(database_path=tmp_path / "cardmarket.db"))
+
+    assert client.get("/").status_code == 400
+    assert client.get("/", headers={"host": "127.0.0.1"}).status_code == 200
+
+
+def test_web_app_sets_local_security_headers_and_rejects_unknown_hosts(tmp_path) -> None:
+    client = make_client(tmp_path / "cardmarket.db")
 
     response = client.get("/")
 
@@ -146,7 +154,7 @@ def test_web_app_closes_request_database_connections(tmp_path, monkeypatch) -> N
         return proxy
 
     monkeypatch.setattr(web_app, "connect_database", tracked_connect)
-    client = TestClient(create_app(database_path=database_path))
+    client = make_client(database_path)
 
     assert client.get("/").status_code == 200
     assert len(opened) == 1
@@ -168,7 +176,7 @@ def test_web_app_refuses_to_report_from_outdated_normalization(tmp_path) -> None
     )
     connection.commit()
     connection.close()
-    client = TestClient(create_app(database_path=database_path))
+    client = make_client(database_path)
 
     response = client.get("/")
 

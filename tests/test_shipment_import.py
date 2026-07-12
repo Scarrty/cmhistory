@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from cm_dashboard.db import create_database
 from cm_dashboard.importing.filename import require_parsed_filename
 from cm_dashboard.importing.normalize import (
@@ -70,7 +72,7 @@ def test_import_shipment_sheet_uses_commission_for_sold_shipments(tmp_path) -> N
         "SOLD SHIPMENTS-BYPAYMENTDATE-2026-01-01_2026-01-31.XLS"
     )
     sheet = WorksheetData(
-        path="in-memory.xls",
+        path=Path("in-memory.xls"),
         sheet_name="Worksheet",
         headers=(
             "OrderID",
@@ -141,7 +143,7 @@ def test_import_shipment_sheet_reports_missing_event_dates_without_crashing(tmp_
         "PURCHASED SHIPMENTS-BYPAYMENTDATE-2026-01-01_2026-01-31.XLS"
     )
     sheet = WorksheetData(
-        path="in-memory.xls",
+        path=Path("in-memory.xls"),
         sheet_name="Worksheet",
         headers=(
             "OrderID",

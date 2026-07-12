@@ -56,6 +56,15 @@ def normalize_int(value: Any) -> int | None:
 
 
 def normalize_decimal(value: Any) -> Decimal | None:
+    """Parse Cardmarket numeric text.
+
+    A single dot is always treated as the decimal separator ("1.234" is one
+    point two three four, not thousand two hundred thirty-four); thousands
+    separators are only recognized when both separators appear ("1.234,56"
+    and "1,234.56"). Cardmarket exports use dot-decimal or comma-decimal
+    values, never a lone thousands separator.
+    """
+
     if is_empty(value):
         return None
     if isinstance(value, Decimal):

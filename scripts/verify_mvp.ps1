@@ -42,6 +42,10 @@ try {
     Invoke-CheckedPython @("-m", "pip_audit")
 
     Write-Host "Building package artifacts..."
+    $DistDir = Join-Path $RepoRoot "dist"
+    if (Test-Path -LiteralPath $DistDir) {
+        Remove-Item -LiteralPath $DistDir -Recurse -Force
+    }
     Invoke-CheckedPython @("-m", "build")
     Invoke-CheckedPython @("scripts/verify_distribution.py", "--dist", "dist")
 

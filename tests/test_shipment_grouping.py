@@ -1,4 +1,5 @@
 from collections import defaultdict
+from dataclasses import dataclass, field
 
 from cm_dashboard.importing.filename import DateBasis, ExportEntity
 from cm_dashboard.importing.readers import read_spreadsheet
@@ -38,6 +39,14 @@ def test_shipment_grouping_preserves_source_row_numbers() -> None:
     assert [row.source_row_number for row in rows] == list(range(2, len(rows) + 2))
 
 
+@dataclass
+class _GroupCounts:
+    rows: int = 0
+    headers: int = 0
+    continuations: int = 0
+    orders: set[str] = field(default_factory=set)
+
+
 @requires_full_source
 def test_shipment_group_counts_match_review_evidence() -> None:
     expected = {
@@ -47,28 +56,23 @@ def test_shipment_group_counts_match_review_evidence() -> None:
         ("SOLD", DateBasis.PURCHASEDATE): (1641, 342, 1299, 342),
     }
 
-    counts: dict[tuple[str, DateBasis], dict[str, set[str] | int]] = defaultdict(
-        lambda: {"rows": 0, "headers": 0, "continuations": 0, "orders": set()}
-    )
+    counts: dict[tuple[str, DateBasis], _GroupCounts] = defaultdict(_GroupCounts)
     report = scan_source_files(source_root())
     for source_file in report.files:
         metadata = source_file.metadata
         if metadata.entity != ExportEntity.SHIPMENTS:
             continue
 
-        rows = resolve_shipment_groups(read_spreadsheet(source_file.path))
-        key = (metadata.direction.value, metadata.date_basis)
-        counts[key]["rows"] += len(rows)
-        counts[key]["headers"] += sum(row.is_header_row for row in rows)
-        counts[key]["continuations"] += sum(not row.is_header_row for row in rows)
-        order_set = counts[key]["orders"]
-        assert isinstance(order_set, set)
-        order_set.update(row.order_id for row in rows if row.order_id is not None)
+        resolved = resolve_shipment_groups(read_spreadsheet(source_file.path))
+        group = counts[(metadata.direction.value, metadata.date_basis)]
+        group.rows += len(resolved)
+        group.headers += sum(row.is_header_row for row in resolved)
+        group.continuations += sum(not row.is_header_row for row in resolved)
+        group.orders.update(row.order_id for row in resolved if row.order_id is not None)
 
     for key, (rows, headers, continuations, unique_orders) in expected.items():
-        order_set = counts[key]["orders"]
-        assert isinstance(order_set, set)
-        assert counts[key]["rows"] == rows
-        assert counts[key]["headers"] == headers
-        assert counts[key]["continuations"] == continuations
-        assert len(order_set) == unique_orders
+        group = counts[key]
+        assert group.rows == rows
+        assert group.headers == headers
+        assert group.continuations == continuations
+        assert len(group.orders) == unique_orders

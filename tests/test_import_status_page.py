@@ -1,11 +1,11 @@
-from fastapi.testclient import TestClient
+
 
 from cm_dashboard.db import create_database
 from cm_dashboard.importing.filename import require_parsed_filename
 from cm_dashboard.importing.raw_store import upsert_import_file
 from cm_dashboard.importing.version import NORMALIZATION_VERSION
-from cm_dashboard.web.app import create_app
 from tests.fixtures import require_fixture_path
+from tests.webclient import make_client
 
 
 def test_import_status_page_shows_import_files_and_issues(tmp_path) -> None:
@@ -30,7 +30,7 @@ def test_import_status_page_shows_import_files_and_issues(tmp_path) -> None:
         (import_file_id,),
     )
     connection.commit()
-    client = TestClient(create_app(database_path=database_path))
+    client = make_client(database_path)
 
     response = client.get("/imports")
 
@@ -68,7 +68,7 @@ def test_import_status_page_paginates_files_and_issues_independently(tmp_path) -
     )
     connection.commit()
     connection.close()
-    client = TestClient(create_app(database_path=database_path))
+    client = make_client(database_path)
 
     first_page = client.get("/imports")
     second_page = client.get("/imports?file_page=2&issue_page=2")

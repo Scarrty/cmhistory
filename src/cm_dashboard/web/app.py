@@ -7,7 +7,7 @@ import csv
 import io
 import sqlite3
 import typing
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
@@ -47,6 +47,7 @@ from cm_dashboard.reporting.queries import (
 
 WEB_DIR = Path(__file__).resolve().parent
 PAGE_SIZE = 100
+DEFAULT_ALLOWED_HOSTS = ("127.0.0.1", "localhost", "[::1]")
 IMPORT_STATUSES = {"pending", "processing", "imported", "failed", "conflict"}
 STATIC_VERSION = max(
     path.stat().st_mtime_ns for path in (WEB_DIR / "static").iterdir() if path.is_file()
@@ -114,7 +115,11 @@ class Pagination:
         return min(self.offset + self.page_size, self.total_count)
 
 
-def create_app(database_path: str | Path | None = None) -> FastAPI:
+def create_app(
+    database_path: str | Path | None = None,
+    *,
+    allowed_hosts: Sequence[str] | None = None,
+) -> FastAPI:
     app = FastAPI(
         title="Cardmarket History Dashboard",
         docs_url=None,
@@ -126,7 +131,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     initial_connection.close()
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=["127.0.0.1", "localhost", "[::1]", "testserver"],
+        allowed_hosts=list(allowed_hosts if allowed_hosts is not None else DEFAULT_ALLOWED_HOSTS),
     )
     app.mount("/static", StaticFiles(directory=str(WEB_DIR / "static")), name="static")
 
@@ -341,13 +346,12 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
         validated_direction = _validated_choice(
             "direction", direction, {"PURCHASED", "SOLD"}
         )
-        validated_date_basis = _validated_choice(
+        validated_date_basis = _required_choice(
             "date_basis",
             date_basis,
             {"PURCHASEDATE", "PAYMENTDATE"},
             default=DEFAULT_DATE_BASIS,
         )
-        assert validated_date_basis is not None
         with _database_connection(app.state.database_path) as connection:
             try:
                 shipment = fetch_shipment_detail(
@@ -489,6 +493,22 @@ def _validated_choice(
 ) -> str | None:
     normalized = value or default
     if normalized is not None and normalized not in allowed:
+        choices = ", ".join(sorted(allowed))
+        raise HTTPException(
+            status_code=422, detail=f"{name} muss einer dieser Werte sein: {choices}"
+        )
+    return normalized
+
+
+def _required_choice(
+    name: str,
+    value: str | None,
+    allowed: set[str],
+    *,
+    default: str,
+) -> str:
+    normalized = value or default
+    if normalized not in allowed:
         choices = ", ".join(sorted(allowed))
         raise HTTPException(
             status_code=422, detail=f"{name} muss einer dieser Werte sein: {choices}"

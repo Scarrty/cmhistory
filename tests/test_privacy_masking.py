@@ -1,13 +1,12 @@
 from urllib.parse import quote_plus
 
-from fastapi.testclient import TestClient
-
 from cm_dashboard.db import create_database
 from cm_dashboard.importing.pipeline import import_source_file
 from cm_dashboard.importing.source_scan import SourceFile
 from cm_dashboard.reporting.queries import fetch_shipment_detail
-from cm_dashboard.web.app import _mask_text, create_app
+from cm_dashboard.web.app import _mask_text
 from tests.fixtures import require_fixture_path
+from tests.webclient import make_client
 
 
 def test_shipment_list_detail_and_article_pages_mask_private_fields(tmp_path) -> None:
@@ -26,14 +25,14 @@ def test_shipment_list_detail_and_article_pages_mask_private_fields(tmp_path) ->
         LIMIT 1
         """
     ).fetchone()
-    client = TestClient(create_app(database_path=database_path))
+    client = make_client(database_path)
 
-    for path in (
+    for url in (
         f"/shipments?username={quote_plus(private_row['username'])}",
         f"/shipments/{private_row['order_id']}",
         f"/articles?username={quote_plus(private_row['username'])}",
     ):
-        response = client.get(path)
+        response = client.get(url)
         assert response.status_code == 200
         assert _mask_text(private_row["username"]) in response.text
         assert f">{private_row['username']}<" not in response.text
@@ -44,7 +43,7 @@ def test_shipment_list_detail_and_article_pages_mask_private_fields(tmp_path) ->
         ):
             if private_value:
                 assert private_value not in response.text
-        if path.startswith("/shipments/"):
+        if url.startswith("/shipments/"):
             assert private_row["username"] not in response.text
         assert "VAT" not in response.text
 

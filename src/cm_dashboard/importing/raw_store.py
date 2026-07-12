@@ -59,7 +59,8 @@ def upsert_import_file(
             sheet_name = excluded.sheet_name,
             import_status = excluded.import_status,
             row_count = excluded.row_count,
-            normalization_version = excluded.normalization_version
+            normalization_version = excluded.normalization_version,
+            imported_at = NULL
         """,
         (
             str(source_path),
@@ -103,7 +104,7 @@ def store_raw_article_rows(
                 serialize_article_business_key(key),
                 _json_dumps(row_values),
             )
-    )
+        )
 
     connection.execute(
         "DELETE FROM raw_article_rows WHERE import_file_id = ?",
