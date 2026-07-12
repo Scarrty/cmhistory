@@ -106,6 +106,19 @@ def test_fetch_shipments_filters_by_username_country_and_date(imported_connectio
     assert rows[0]["order_id"] == sample["order_id"]
 
 
+def test_fetch_shipments_orders_numeric_order_ids_numerically(tmp_path) -> None:
+    connection = create_database(tmp_path / "cardmarket.db")
+    connection.executemany(
+        "INSERT INTO shipments (order_id, direction) VALUES (?, 'SOLD')",
+        [("999",), ("10000",), ("1000",)],
+    )
+    connection.commit()
+
+    rows = fetch_shipments(connection)
+
+    assert [row["order_id"] for row in rows] == ["10000", "1000", "999"]
+
+
 def test_period_totals_returns_counts_and_purchase_total(imported_connection) -> None:
     totals = period_totals(
         imported_connection,
