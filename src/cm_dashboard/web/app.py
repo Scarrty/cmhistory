@@ -62,6 +62,7 @@ PERIOD_REPORT_FIELDS = (
     "purchase_total",
     "sales_total",
     "total",
+    "net_total",
 )
 templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
 templates.env.filters["mask_text"] = lambda value: _mask_text(value)

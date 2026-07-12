@@ -34,6 +34,7 @@ def test_period_report_csv_uses_filters_and_expected_headers(tmp_path) -> None:
         "purchase_total",
         "sales_total",
         "total",
+        "net_total",
     }
     assert rows[0] == {
         "section": "period",
@@ -45,12 +46,14 @@ def test_period_report_csv_uses_filters_and_expected_headers(tmp_path) -> None:
         "purchase_total": "39.6",
         "sales_total": "0",
         "total": "39.6",
+        "net_total": "-39.6",
     }
     assert rows[1]["section"] == "monthly"
     assert rows[1]["date_basis"] == "PAYMENTDATE"
     assert rows[1]["month"] == "2016-06"
     assert rows[1]["direction"] == "PURCHASED"
     assert rows[1]["total"] == "39.6"
+    assert rows[1]["net_total"] == "-39.6"
 
 
 def _metadata(path):

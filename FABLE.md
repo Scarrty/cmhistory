@@ -26,15 +26,19 @@ ein anderes System die Änderungen ohne erneute Analyse durchführen kann.
 
 ## Umsetzungsstand (2026-07-12)
 
-Alle Befunde außer drei sind auf diesem Branch umgesetzt (Commits `43a83a4` bis
-`2ef7d1c`); die Detailabschnitte unten dokumentieren weiterhin Analyse und Begründung.
-**Bewusst offen** bleiben, weil sie eine fachliche Entscheidung des Maintainers brauchen:
+Alle Befunde sind auf diesem Branch umgesetzt; die Detailabschnitte unten dokumentieren
+weiterhin Analyse und Begründung. Die drei zunächst offenen Punkte wurden am 2026-07-12 per
+Maintainer-Interview entschieden und anschließend umgesetzt:
 
-- **P2-16** (quittierbare Coverage-Warnungen): Scope-/Modellentscheidung.
-- **P3-2 (Umbenennungs-Variante)**: `total` im CSV-Report ist jetzt als Bruttovolumen in
-  der README dokumentiert; eine Umbenennung der Spalte wäre ein Breaking Change des
-  Reportformats und bleibt dem Maintainer überlassen.
-- **P3-5** (Lizenz): Lizenzwahl ist keine technische Entscheidung.
+- **P2-16** (Coverage-Warnungen): Entscheidung **Quittierungsdatei**. Bekannte Lücken werden
+  über Fingerprints in `accepted_issues.json` neben der Datenbank quittiert; `validate` gibt
+  die Fingerprints aus, quittierte Lücken werden zu einer Info-Zeile
+  (`accepted_period_coverage_summary`) zusammengefasst. Die Datei überlebt einen `rebuild`.
+- **P3-2** (CSV-Report): Entscheidung **`net_total` ergänzen** (kein Breaking Change).
+  `total` bleibt Bruttovolumen; neue Spalte `net_total` = Verkäufe − Käufe (Periodenzeile)
+  bzw. vorzeichenbehaftet je Richtung (Monatszeilen). Semantik in der README dokumentiert.
+- **P3-5** (Lizenz): Entscheidung **MIT**. `LICENSE`-Datei plus `license`/`license-files`
+  in `pyproject.toml` (Build-Backend auf `setuptools>=77` angehoben für SPDX-Metadaten).
 
 Wichtig für den Betrieb: P1-1 und P2-4 ändern normalisierte Fakten —
 `NORMALIZATION_VERSION` wurde auf 3 erhöht. Bestehende Datenbanken verlangen nach dem
@@ -66,12 +70,12 @@ Update einen einmaligen expliziten `rebuild` (CLI und Web zeigen das an).
 | P2-13 | P2 | Web | `allowed_hosts` enthält `testserver` in der Produktionskonfiguration | ✅ umgesetzt |
 | P2-14 | P2 | Web | `assert` im Request-Pfad (`shipment_detail`) entfällt unter `python -O` | ✅ umgesetzt |
 | P2-15 | P2 | Import | `imported_at` wird beim Überschreiben mit Status `failed` nicht zurückgesetzt | ✅ umgesetzt |
-| P2-16 | P2 | Validierung | `missing_period_coverage`-Warnungen sind nicht quittierbar → Dauerrauschen | ⏸ offen (Maintainer-Entscheidung) |
+| P2-16 | P2 | Validierung | `missing_period_coverage`-Warnungen sind nicht quittierbar → Dauerrauschen | ✅ umgesetzt (Quittierungsdatei) |
 | P3-1 | P3 | Stil | Fehlerhafte Einrückung der schließenden Klammer in `store_raw_article_rows` | ✅ umgesetzt |
-| P3-2 | P3 | Doku | Semantik von `combined_total` (Käufe+Verkäufe addiert) klären/umbenennen | ✅ dokumentiert / ⏸ Umbenennung offen |
+| P3-2 | P3 | Doku | Semantik von `combined_total` (Käufe+Verkäufe addiert) klären/umbenennen | ✅ umgesetzt (dokumentiert + `net_total`) |
 | P3-3 | P3 | Doku | Dezimal-Heuristik `"1.234"` (Punkt als Tausendertrenner) dokumentieren | ✅ umgesetzt |
 | P3-4 | P3 | Tests | `synthetic_sources` schreibt CSV-Inhalt unabhängig von der Dateiendung | ✅ umgesetzt |
-| P3-5 | P3 | Repo | Keine LICENSE-Datei / kein `license`-Feld in `pyproject.toml` | ⏸ offen (Maintainer-Entscheidung) |
+| P3-5 | P3 | Repo | Keine LICENSE-Datei / kein `license`-Feld in `pyproject.toml` | ✅ umgesetzt (MIT) |
 | P3-6 | P3 | Web | Kein `/favicon.ico` → 404 bei jedem Browseraufruf | ✅ umgesetzt |
 
 ---

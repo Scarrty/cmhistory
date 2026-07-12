@@ -312,6 +312,7 @@ def period_report_rows(
             "purchase_total": totals["purchase_total"],
             "sales_total": totals["sales_total"],
             "total": totals["combined_total"],
+            "net_total": totals["sales_total"] - totals["purchase_total"],
         }
     ]
     rows.extend(
@@ -325,6 +326,7 @@ def period_report_rows(
             "purchase_total": "",
             "sales_total": "",
             "total": row["total"],
+            "net_total": row["total"] if row["direction"] == "SOLD" else -row["total"],
         }
         for row in monthly_totals(connection, filters)
     )

@@ -9,6 +9,7 @@ from pathlib import Path
 
 from cm_dashboard.config import load_settings
 from cm_dashboard.db import connect_database, create_database
+from cm_dashboard.importing.accepted_issues import coverage_fingerprint
 from cm_dashboard.importing.pipeline import (
     DatabaseRebuildRequiredError,
     ImportBatchError,
@@ -100,6 +101,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"issues: {len(issues)}")
         for issue in issues:
             print(f"{issue.severity}: {issue.code}: {issue.message}")
+            fingerprint = coverage_fingerprint(issue)
+            if fingerprint is not None:
+                print(f"  fingerprint: {fingerprint}")
         return 1 if any(issue.severity == "error" for issue in issues) else 0
 
     parser.error(f"Unknown command: {args.command}")

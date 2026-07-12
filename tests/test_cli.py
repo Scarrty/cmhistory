@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 
 import cm_dashboard.cli as cli
@@ -96,6 +97,38 @@ def test_cli_validate_wires_database_to_validation(tmp_path: Path, monkeypatch, 
     assert fake_connection.closed
     assert "issues: 1" in output
     assert "warning: example: example warning" in output
+
+
+def test_cli_validate_prints_coverage_fingerprints(tmp_path: Path, monkeypatch, capsys) -> None:
+    class FakeConnection:
+        def close(self):
+            pass
+
+    def fake_validate_database(connection):
+        return (
+            ValidationIssue(
+                severity="warning",
+                code="missing_period_coverage",
+                message="Missing PURCHASED ARTICLES PURCHASEDATE 2024-06-01_2024-06-30",
+                direction="PURCHASED",
+                entity="ARTICLES",
+                date_basis="PURCHASEDATE",
+                period_start=date(2024, 6, 1),
+                period_end=date(2024, 6, 30),
+            ),
+        )
+
+    monkeypatch.setattr(cli, "connect_database", lambda path: FakeConnection())
+    monkeypatch.setattr(cli, "validate_database", fake_validate_database)
+
+    exit_code = cli.main(["validate", "--db", str(tmp_path / "db.sqlite")])
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert (
+        "  fingerprint: missing_period_coverage|PURCHASED|ARTICLES|PURCHASEDATE"
+        "|2024-06-01|2024-06-30" in output
+    )
 
 
 def test_cli_validate_fails_on_error_issues(tmp_path: Path, monkeypatch, capsys) -> None:

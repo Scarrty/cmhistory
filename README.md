@@ -102,7 +102,10 @@ Authentifizierung und darf deshalb nicht an `0.0.0.0` oder ins Internet gebunden
   Inventarreport.
 - Die Spalte `total` im CSV-Report ist ein Bruttovolumen (Kauf- plus Verkaufssummen der
   gefilterten Zeilen), keine Saldo- oder Gewinngroesse. Kauf- und Verkaufssummen stehen
-  getrennt in `purchase_total` und `sales_total`.
+  getrennt in `purchase_total` und `sales_total`. Die Spalte `net_total` ist der Saldo
+  (Verkaeufe minus Kaeufe); in Monatszeilen ist sie je Richtung vorzeichenbehaftet
+  (Verkaeufe positiv, Kaeufe negativ). Auch `net_total` ist keine Gewinngroesse, weil
+  Gebuehren, Versand und Bestandsveraenderungen nicht enthalten sind.
 
 ## Validierung verstehen
 
@@ -117,6 +120,26 @@ Dateifehler und fehlende Shipment-Events auf. Typische Codes:
 
 Warnungen sind zu pruefen, aber nicht automatisch Datenverlust. Fehler beim Lesen,
 Normalisieren oder bei geaenderten Quelldateien erfordern eine Korrektur bzw. einen Neuaufbau.
+
+Bekannte, dauerhafte Abdeckungsluecken (Exporte, die nie existiert haben) koennen quittiert
+werden, damit sie das Validierungsergebnis nicht dauerhaft verrauschen: `validate` gibt fuer
+jede `missing_period_coverage`-Warnung einen `fingerprint` aus. Dieser wird in die Datei
+`accepted_issues.json` neben der Datenbank eingetragen:
+
+```json
+{
+  "accepted_coverage": [
+    {
+      "fingerprint": "missing_period_coverage|PURCHASED|ARTICLES|PURCHASEDATE|2024-06-01|2024-06-30",
+      "note": "Export wurde 2024 nie erzeugt"
+    }
+  ]
+}
+```
+
+Quittierte Luecken werden ausgeblendet und als eine Info-Zeile
+(`accepted_period_coverage_summary`) zusammengefasst. Die Datei ist unabhaengig von der
+Datenbank und ueberlebt einen `rebuild`; neue, nicht quittierte Luecken erscheinen weiterhin.
 
 ## Entwicklung und Verifikation
 
@@ -161,3 +184,7 @@ Nicht enthalten sind Web-Uploads, asynchrone Jobs, Mehrbenutzerbetrieb, Rollen, 
 automatische Backups, PDF/Excel-Reports, Steuerlogik, FIFO/Inventar und belastbare Einzelmargen.
 Weitere fachlich offene Punkte stehen im
 [Projekt-Audit](OUTPUT/PROJECT_AUDIT_AND_OPTIMIZATION.md).
+
+## Lizenz
+
+Dieses Projekt steht unter der [MIT-Lizenz](LICENSE).

@@ -80,6 +80,8 @@ Danach `/imports` pruefen. Erwartbare Informations- oder Warnhinweise koennen se
 - `shipment_grouping_summary`: Shipment-Fortsetzungen wurden ihrem Header zugeordnet
 - `missing_period_coverage`: Gegenexport oder Zeitraumabdeckung fehlt
 - `missing_shipment_event_date`: ein konkretes Shipmentdatum fehlt in der Quelle
+- `accepted_period_coverage_summary`: quittierte, bekannte Abdeckungsluecken (siehe README,
+  Datei `accepted_issues.json` neben der Datenbank)
 
 Nicht akzeptieren:
 
