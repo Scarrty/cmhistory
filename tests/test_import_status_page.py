@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from cm_dashboard.db import create_database
 from cm_dashboard.importing.filename import require_parsed_filename
 from cm_dashboard.importing.raw_store import upsert_import_file
+from cm_dashboard.importing.version import NORMALIZATION_VERSION
 from cm_dashboard.web.app import create_app
 from tests.fixtures import require_fixture_path
 
@@ -51,9 +52,12 @@ def test_import_status_page_paginates_files_and_issues_independently(tmp_path) -
             period_start, period_end, import_status, normalization_version
         )
         VALUES (?, ?, '.CSV', 'SOLD', 'ARTICLES', 'PAYMENTDATE',
-                '2026-08-01', '2026-08-31', 'imported', 2)
+                '2026-08-01', '2026-08-31', 'imported', ?)
         """,
-        [(f"source-{index}", f"file-{index:03d}.CSV") for index in range(105)],
+        [
+            (f"source-{index}", f"file-{index:03d}.CSV", NORMALIZATION_VERSION)
+            for index in range(105)
+        ],
     )
     connection.executemany(
         """

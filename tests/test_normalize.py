@@ -70,8 +70,13 @@ def test_normalize_date_returns_date_only() -> None:
 
 def test_normalize_bool_accepts_cardmarket_professional_marker() -> None:
     assert normalize_bool("X") is True
-    assert normalize_bool("") is False
     assert normalize_bool("0") is False
+
+
+def test_normalize_bool_keeps_empty_values_unknown() -> None:
+    assert normalize_bool("") is None
+    assert normalize_bool(None) is None
+    assert normalize_bool("   ") is None
 
 
 def test_normalize_currency_uppercases_currency_codes() -> None:

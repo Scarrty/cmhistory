@@ -108,7 +108,7 @@ def normalize_date(value: Any) -> date | None:
 
 def normalize_bool(value: Any) -> bool | None:
     if is_empty(value):
-        return False
+        return None
     if isinstance(value, bool):
         return value
     text = str(value).strip().lower()

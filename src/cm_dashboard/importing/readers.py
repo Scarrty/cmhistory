@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import io
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -60,7 +61,9 @@ def _read_csv(path: Path) -> WorksheetData:
     text = _read_csv_text(path)
     sample = text[:4096]
     delimiter = _detect_csv_delimiter(sample)
-    reader = csv.reader(text.splitlines(), delimiter=delimiter)
+    # io.StringIO keeps line endings, so csv.reader can reassemble quoted
+    # fields that span multiple lines without dropping the embedded newline.
+    reader = csv.reader(io.StringIO(text), delimiter=delimiter)
     try:
         raw_headers = next(reader)
     except StopIteration:

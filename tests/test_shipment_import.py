@@ -44,8 +44,9 @@ def test_import_shipment_sheet_normalizes_shipments_events_and_fees(tmp_path) ->
     ).fetchone()
     assert shipment["username"] == normalize_text(private_header.values["Username"])
     assert shipment["country"] == normalize_text(private_header.values["Country"])
-    assert shipment["is_professional"] == int(
-        bool(normalize_bool(private_header.values["Is Professional"]))
+    expected_is_professional = normalize_bool(private_header.values["Is Professional"])
+    assert shipment["is_professional"] == (
+        None if expected_is_professional is None else int(expected_is_professional)
     )
     assert shipment["vat_id_present"] == int(
         normalize_text(private_header.values["VAT Number"]) is not None
