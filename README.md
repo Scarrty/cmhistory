@@ -72,6 +72,11 @@ Rest des Ordners weiter importiert wird. Details stehen in
   --host 127.0.0.1 --port 8000 --no-access-log
 ```
 
+Der Standard-Datenbankpfad ist `data\cardmarket.db` im aktuellen Arbeitsverzeichnis. Ein
+anderer Pfad wird ueber die Umgebungsvariable `CM_DASHBOARD_DB` gesetzt; fuer die
+CLI-Befehle gilt zusaetzlich `CM_DASHBOARD_SOURCE` fuer den Quellordner. Explizite
+`--source`/`--db`-Argumente haben Vorrang vor den Umgebungsvariablen.
+
 Danach lokal oeffnen:
 
 - `http://127.0.0.1:8000/` - Kennzahlen, Filter und Monatsdiagramm

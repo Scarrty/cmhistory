@@ -1,3 +1,6 @@
+import importlib
+import sys
+
 from fastapi.testclient import TestClient
 
 import cm_dashboard.web.app as web_app
@@ -5,6 +8,18 @@ from cm_dashboard.db import connect_database, create_database
 from cm_dashboard.importing.filename import require_parsed_filename
 from cm_dashboard.importing.raw_store import upsert_import_file
 from cm_dashboard.web.app import create_app
+
+
+def test_importing_web_app_module_creates_no_database(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    sys.modules.pop("cm_dashboard.web.app", None)
+    try:
+        importlib.import_module("cm_dashboard.web.app")
+
+        assert not (tmp_path / "data").exists()
+    finally:
+        sys.modules.pop("cm_dashboard.web.app", None)
+        importlib.import_module("cm_dashboard.web.app")
 
 
 def test_web_app_starts_and_serves_base_route(tmp_path) -> None:

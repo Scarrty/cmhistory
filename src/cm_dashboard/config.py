@@ -1,11 +1,11 @@
 """Application path configuration."""
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_SOURCE_PATH = PROJECT_ROOT
-DEFAULT_DATABASE_PATH = PROJECT_ROOT / "data" / "cardmarket.db"
+SOURCE_PATH_ENV = "CM_DASHBOARD_SOURCE"
+DATABASE_PATH_ENV = "CM_DASHBOARD_DB"
 
 
 def normalize_path(path: str | Path, *, base_path: Path | None = None) -> Path:
@@ -17,12 +17,30 @@ def normalize_path(path: str | Path, *, base_path: Path | None = None) -> Path:
     return candidate.resolve(strict=False)
 
 
+def default_source_path() -> Path:
+    """Default source folder: CM_DASHBOARD_SOURCE or the working directory."""
+
+    configured = os.environ.get(SOURCE_PATH_ENV)
+    if configured:
+        return normalize_path(configured)
+    return Path.cwd().resolve(strict=False)
+
+
+def default_database_path() -> Path:
+    """Default database file: CM_DASHBOARD_DB or data/cardmarket.db in the working directory."""
+
+    configured = os.environ.get(DATABASE_PATH_ENV)
+    if configured:
+        return normalize_path(configured)
+    return (Path.cwd() / "data" / "cardmarket.db").resolve(strict=False)
+
+
 @dataclass(frozen=True)
 class Settings:
     """Runtime settings for local import and dashboard commands."""
 
-    source_path: Path = DEFAULT_SOURCE_PATH
-    database_path: Path = DEFAULT_DATABASE_PATH
+    source_path: Path
+    database_path: Path
 
 
 def load_settings(
@@ -33,8 +51,8 @@ def load_settings(
     return Settings(
         source_path=normalize_path(source_path)
         if source_path is not None
-        else DEFAULT_SOURCE_PATH.resolve(strict=False),
+        else default_source_path(),
         database_path=normalize_path(database_path)
         if database_path is not None
-        else DEFAULT_DATABASE_PATH.resolve(strict=False),
+        else default_database_path(),
     )

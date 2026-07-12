@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import csv
-import inspect
 import io
 import sqlite3
 import typing
@@ -16,23 +15,9 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from urllib.parse import urlencode
 
+from cm_dashboard._compat import patch_python314_typing_for_pydantic
 
-def _patch_python314_typing_for_pydantic() -> None:
-    original_eval_type = getattr(typing, "_eval_type", None)
-    if original_eval_type is None or getattr(original_eval_type, "_cm_dashboard_patched", False):
-        return
-    if "prefer_fwd_module" in inspect.signature(original_eval_type).parameters:
-        return
-
-    def patched_eval_type(*args: typing.Any, **kwargs: typing.Any) -> typing.Any:
-        kwargs.pop("prefer_fwd_module", None)
-        return original_eval_type(*args, **kwargs)
-
-    patched_eval_type.__dict__["_cm_dashboard_patched"] = True
-    typing.__dict__["_eval_type"] = patched_eval_type
-
-
-_patch_python314_typing_for_pydantic()
+patch_python314_typing_for_pydantic()
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
@@ -394,7 +379,18 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     return app
 
 
-app = create_app()
+_lazy_app: FastAPI | None = None
+
+
+def __getattr__(name: str) -> FastAPI:
+    # PEP 562: keep "uvicorn cm_dashboard.web.app:app" working without
+    # creating the database as an import side effect.
+    if name == "app":
+        global _lazy_app
+        if _lazy_app is None:
+            _lazy_app = create_app()
+        return _lazy_app
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 @contextmanager
