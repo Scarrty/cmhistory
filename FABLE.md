@@ -1,5 +1,8 @@
 # FABLE.md — Repo-Analyse: Fehler, Probleme und Verbesserungsvorschläge
 
+> **AI-/Best-Effort-Hinweis:** Dieses Projekt und dieses Review wurden zu 100 % mit KI
+> generiert. Keine Gewaehr; siehe [NOTICE.md](NOTICE.md).
+
 Vollständige Analyse des Repositories `Scarrty/cmhistory` (Cardmarket History Dashboard).
 Diese Datei ist das Arbeitsdokument für die Umsetzung: Jeder Befund enthält Fundstelle,
 Beleg/Reproduktion, konkreten Fix-Vorschlag und Akzeptanzkriterien, sodass ein Mensch oder

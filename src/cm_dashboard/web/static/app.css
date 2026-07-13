@@ -88,6 +88,31 @@ a {
   padding: 24px;
 }
 
+.site-footer {
+  background: #fff8e8;
+  border-top: 1px solid #e5c66b;
+  color: var(--muted);
+  padding: 16px 0;
+}
+
+.site-footer-inner {
+  margin: 0 auto;
+  padding: 0 24px;
+  width: min(1280px, 100%);
+}
+
+.site-footer p {
+  margin: 0;
+}
+
+.site-footer p + p {
+  margin-top: 4px;
+}
+
+.site-footer strong {
+  color: var(--text);
+}
+
 .panel {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -356,6 +381,10 @@ h2 {
 
   .page {
     padding: 16px;
+  }
+
+  .site-footer-inner {
+    padding: 0 16px;
   }
 
   .kpi-grid {

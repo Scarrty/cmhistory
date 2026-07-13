@@ -1,0 +1,1 @@
+**100 % AI-generated / Best Effort - keine Gewaehr.** [Hinweis](https://github.com/Scarrty/cmhistory/blob/main/NOTICE.md) | Dokumentation fuer **cm-dashboard 1.0.0** | [Repository](https://github.com/Scarrty/cmhistory) | [MIT-Lizenz](https://github.com/Scarrty/cmhistory/blob/main/LICENSE)

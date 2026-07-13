@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cm-dashboard"
-version = "0.1.0"
-description = "Local Cardmarket sales and purchase dashboard"
+version = "1.0.0"
+description = "100% AI-generated, best-effort local Cardmarket sales and purchase dashboard"
 readme = "README.md"
 license = "MIT"
-license-files = ["LICENSE"]
+license-files = ["LICENSE", "NOTICE.md"]
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.116,<1.0",
@@ -16,6 +16,13 @@ dependencies = [
     "python-calamine>=0.7,<1.0",
     "uvicorn>=0.35,<1.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Scarrty/cmhistory"
+Documentation = "https://github.com/Scarrty/cmhistory/wiki"
+Repository = "https://github.com/Scarrty/cmhistory.git"
+Changelog = "https://github.com/Scarrty/cmhistory/blob/main/CHANGELOG.md"
+Releases = "https://github.com/Scarrty/cmhistory/releases"
 
 [project.optional-dependencies]
 dev = [

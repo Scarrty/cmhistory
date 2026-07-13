@@ -1,8 +1,32 @@
 # Cardmarket History Dashboard
 
+[![Release](https://img.shields.io/github/v/release/Scarrty/cmhistory?style=flat-square)](https://github.com/Scarrty/cmhistory/releases/latest)
+[![CI](https://img.shields.io/github/actions/workflow/status/Scarrty/cmhistory/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Scarrty/cmhistory/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?style=flat-square&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.116%2B-009688?style=flat-square&logo=fastapi&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-3-003B57?style=flat-square&logo=sqlite&logoColor=white)
+![Jinja](https://img.shields.io/badge/Jinja-3.1%2B-B41717?style=flat-square&logo=jinja&logoColor=white)
+![pytest](https://img.shields.io/badge/pytest-tested-0A9EDC?style=flat-square&logo=pytest&logoColor=white)
+![Ruff](https://img.shields.io/badge/Ruff-linted-D7FF64?style=flat-square&logo=ruff&logoColor=111111)
+![mypy](https://img.shields.io/badge/mypy-typed-2A6DB2?style=flat-square)
+[![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
+![AI generated](https://img.shields.io/badge/AI--generated-100%25-6F42C1?style=flat-square)
+![Best effort](https://img.shields.io/badge/support-Best%20Effort-orange?style=flat-square)
+
+> [!WARNING]
+> **100 % AI-generated / Best Effort:** Alle Projektartefakte wurden mit KI-Systemen
+> generiert. Trotz Tests und Reviews kann die Software Fehler enthalten. Ergebnisse immer
+> gegen die Originalexporte pruefen, Backups behalten und nicht als Steuer-, Rechts- oder
+> Buchhaltungsberatung verwenden. Vollstaendiger Hinweis: [NOTICE.md](NOTICE.md).
+
 Lokales Sales/Purchase-Dashboard fuer historische und kuenftige Cardmarket-Exporte.
 Die Anwendung liest XLS, XLSX und CSV, bewahrt Rohzeilen mit Quellenbezug auf, normalisiert
 Artikel und Sendungen und verknuepft beide Ebenen ueber `direction + order_id`.
+
+Aktuelle stabile Version: **1.0.0**. Installationspakete stehen unter
+[GitHub Releases](https://github.com/Scarrty/cmhistory/releases/latest) bereit. Die vollstaendige
+Benutzerdokumentation befindet sich im
+[GitHub-Wiki](https://github.com/Scarrty/cmhistory/wiki).
 
 ## Funktionsumfang
 
@@ -30,6 +54,17 @@ Die Anwendung arbeitet lokal. Sie benoetigt keine Cardmarket-API und uebertraegt
 Quelldaten an externe Dienste.
 
 ## Installation
+
+### Installation der stabilen Version
+
+Die empfohlene Installation aus dem Release-Wheel ist im Wiki Schritt fuer Schritt beschrieben:
+
+- [Cardmarket-Exporte erzeugen](https://github.com/Scarrty/cmhistory/wiki/Cardmarket-Exporte)
+- [Software installieren](https://github.com/Scarrty/cmhistory/wiki/Installation)
+- [Ersten Datenbankaufbau durchfuehren](https://github.com/Scarrty/cmhistory/wiki/Erster-Datenbankaufbau)
+- [Monatliche Daten importieren](https://github.com/Scarrty/cmhistory/wiki/Monatlicher-Import)
+
+### Entwicklungsinstallation aus dem Repository
 
 ```powershell
 cd "D:\OneDrive\Dokumente\CM History"
@@ -188,3 +223,7 @@ Weitere fachlich offene Punkte stehen im
 ## Lizenz
 
 Dieses Projekt steht unter der [MIT-Lizenz](LICENSE).
+
+## Releases
+
+Release-Historie und Upgrade-Hinweise stehen im [Changelog](CHANGELOG.md).

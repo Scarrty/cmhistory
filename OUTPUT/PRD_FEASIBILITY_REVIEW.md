@@ -1,5 +1,8 @@
 # PRD Feasibility Review
 
+> **AI-/Best-Effort-Hinweis:** Dieses Review wurde zu 100 % mit KI generiert. Keine Gewaehr;
+> siehe [NOTICE.md](../NOTICE.md).
+
 ## Executive Verdict
 READY WITH CHANGES
 

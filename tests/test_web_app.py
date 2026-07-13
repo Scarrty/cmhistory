@@ -34,6 +34,8 @@ def test_web_app_starts_and_serves_base_route(tmp_path) -> None:
     assert '<html lang="de">' in response.text
     assert '<a class="skip-link" href="#main-content">Zum Inhalt</a>' in response.text
     assert 'id="main-content" tabindex="-1"' in response.text
+    assert "100 % AI-generated / Best Effort" in response.text
+    assert 'aria-label="Projekt-Hinweis"' in response.text
 
 
 def test_web_app_serves_static_css(tmp_path) -> None:

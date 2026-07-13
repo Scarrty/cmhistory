@@ -1,5 +1,8 @@
 # Projekt-Audit und Optimierungsbericht
 
+> **AI-/Best-Effort-Hinweis:** Projekt und Audit wurden zu 100 % mit KI generiert. Keine
+> Gewaehr; siehe [NOTICE.md](../NOTICE.md).
+
 Stand der Bestandsaufnahme: 2026-07-10; Abschlussverifikation: 2026-07-11
 
 ## 1. Projektverstaendnis

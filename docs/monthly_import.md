@@ -1,5 +1,8 @@
 # Monatlicher Importablauf
 
+> **AI-/Best-Effort-Hinweis:** Projekt und Dokumentation wurden zu 100 % mit KI generiert.
+> Ergebnisse pruefen und Backups behalten; siehe [NOTICE.md](../NOTICE.md).
+
 Diese Anleitung beschreibt den wiederkehrenden Import neuer Cardmarket-Exporte in die lokale
 SQLite-Datenbank.
 

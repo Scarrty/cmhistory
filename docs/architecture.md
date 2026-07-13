@@ -1,5 +1,8 @@
 # Architektur
 
+> **AI-/Best-Effort-Hinweis:** Projekt und Dokumentation wurden zu 100 % mit KI generiert.
+> Keine Gewaehr; siehe [NOTICE.md](../NOTICE.md).
+
 ## Ziel und Randbedingungen
 
 Das Projekt ist eine lokale Einzelplatzanwendung fuer Cardmarket-Exporthistorien. Die

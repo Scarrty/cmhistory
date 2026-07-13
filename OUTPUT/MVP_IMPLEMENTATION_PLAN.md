@@ -1,5 +1,8 @@
 # MVP Implementation Plan
 
+> **AI-/Best-Effort-Hinweis:** Dieser Plan wurde zu 100 % mit KI generiert. Keine Gewaehr;
+> siehe [NOTICE.md](../NOTICE.md).
+
 > Historisches Planungsdokument vor der Umsetzung. Fuer den tatsaechlichen Stand, offene
 > Punkte und Verifikation gelten die aktuelle `README.md` und
 > `OUTPUT/PROJECT_AUDIT_AND_OPTIMIZATION.md`.

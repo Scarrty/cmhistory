@@ -1,5 +1,8 @@
 # PRD: Cardmarket Sales/Purchase Dashboard
 
+> **AI-/Best-Effort-Hinweis:** Dieses PRD wurde zu 100 % mit KI generiert. Keine Gewaehr;
+> siehe [NOTICE.md](NOTICE.md).
+
 Stand: 2026-07-08
 
 Basis: Cardmarket-Historie in `D:\OneDrive\Dokumente\CM History` und Datenmodell in `Datenmodell.md`.
@@ -639,4 +642,3 @@ Der MVP gilt als fertig, wenn:
 - Das Dashboard Sales und Purchases fuer beliebige Zeitraeume visualisiert.
 - Reports fuer Monats- und Jahreszeitraeume erzeugt und als CSV exportiert werden koennen.
 - Importprobleme und unverknuepfte Datensaetze sichtbar sind.
-

@@ -1,5 +1,8 @@
 # Datenmodell fuer Cardmarket-Historie
 
+> **AI-/Best-Effort-Hinweis:** Dieses Datenmodell wurde zu 100 % mit KI generiert und muss
+> gegen die Originalexporte geprueft werden. Keine Gewaehr; siehe [NOTICE.md](NOTICE.md).
+
 Stand der Analyse: 2026-07-07
 
 Analysierter Ordner: `D:\OneDrive\Dokumente\CM History`

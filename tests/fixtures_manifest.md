@@ -1,5 +1,8 @@
 # Source Fixture Manifest
 
+> **AI-/Best-Effort-Hinweis:** Projekt und Testdokumentation wurden zu 100 % mit KI generiert.
+> Keine Gewaehr; siehe [NOTICE.md](../NOTICE.md).
+
 These fixtures reference real local Cardmarket export files by path. The files are not copied into
 the repository because they contain private account and transaction data.
 

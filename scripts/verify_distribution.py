@@ -17,6 +17,10 @@ REQUIRED_WHEEL_FILES = {
     "cm_dashboard/web/templates/base.html",
     "cm_dashboard/web/templates/dashboard.html",
 }
+REQUIRED_WHEEL_SUFFIXES = {
+    ".dist-info/licenses/LICENSE",
+    ".dist-info/licenses/NOTICE.md",
+}
 
 
 def verify_distribution(dist_directory: Path) -> Path:
@@ -27,7 +31,13 @@ def verify_distribution(dist_directory: Path) -> Path:
         )
     wheel = wheels[0]
     with zipfile.ZipFile(wheel) as archive:
-        missing = REQUIRED_WHEEL_FILES.difference(archive.namelist())
+        archive_names = archive.namelist()
+        missing = REQUIRED_WHEEL_FILES.difference(archive_names)
+        missing.update(
+            suffix
+            for suffix in REQUIRED_WHEEL_SUFFIXES
+            if not any(name.endswith(suffix) for name in archive_names)
+        )
     if missing:
         formatted = ", ".join(sorted(missing))
         raise RuntimeError(f"Wheel is missing runtime resources: {formatted}")
